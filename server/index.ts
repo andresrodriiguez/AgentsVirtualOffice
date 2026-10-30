@@ -142,7 +142,7 @@ function agentPatch(body: Record<string, unknown>): AgentPatch {
 
 function providerPatch(body: Record<string, unknown>): Partial<Provider> {
   const patch: Partial<Provider> = {};
-  for (const key of ["name", "baseUrl", "apiKey", "apiKeyEnv"] as const) {
+  for (const key of ["name", "baseUrl", "apiKey", "apiKeyEnv", "configDir"] as const) {
     const v = optString(body, key);
     if (v !== undefined) patch[key] = v;
   }

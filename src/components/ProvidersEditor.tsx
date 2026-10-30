@@ -63,6 +63,16 @@ function ProviderRow({ p, inUse, onError }: { p: PublicProvider; inUse: boolean;
           </label>
         </div>
       )}
+      {draft.kind === "claude-code" && (
+        <label>
+          Carpeta de la cuenta (opcional)
+          <input
+            value={draft.configDir ?? ""}
+            placeholder="vacío = la cuenta con la que iniciaste sesión en Claude Code · ej. ~/.claude-empresa"
+            onChange={(e) => setDraft({ ...draft, configDir: e.target.value || undefined })}
+          />
+        </label>
+      )}
       <div className="card-actions">
         <span className="spacer" />
         <button

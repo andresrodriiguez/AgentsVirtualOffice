@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { claudeCodeArgs, streamChat, toClaudeCodePrompt } from "../../server/providers.ts";
+import { claudeCodeArgs, claudeCodeEnv, streamChat, toClaudeCodePrompt } from "../../server/providers.ts";
 import { CLAUDE_CODE_PROVIDER, defaultOffice, migrateOffice } from "../../server/store.ts";
 
 const FAKE = fileURLToPath(new URL("./fixtures/fake-claude.mjs", import.meta.url));
@@ -50,6 +50,17 @@ describe("claude-code provider", () => {
     expect(p).toContain("Usuario: a");
     expect(p).toContain("Tú: b");
     expect(p.endsWith("c")).toBe(true);
+  });
+
+  it("picks the account folder and never leaks API keys to the CLI", () => {
+    const base = { PATH: "/bin", ANTHROPIC_API_KEY: "sk-x", ANTHROPIC_AUTH_TOKEN: "t" };
+    const plain = claudeCodeEnv(CLAUDE_CODE_PROVIDER, base);
+    expect(plain.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(plain.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(plain.CLAUDE_CONFIG_DIR).toBeUndefined();
+    expect(plain.PATH).toBe("/bin");
+    expect(claudeCodeEnv({ ...CLAUDE_CODE_PROVIDER, configDir: "/data/cuenta-a" }, base).CLAUDE_CONFIG_DIR).toBe("/data/cuenta-a");
+    expect(claudeCodeEnv({ ...CLAUDE_CODE_PROVIDER, configDir: "~/.claude-b" }, base).CLAUDE_CONFIG_DIR).toMatch(/\.claude-b$/);
   });
 
   it("moves an all-demo office to Claude Code once", () => {

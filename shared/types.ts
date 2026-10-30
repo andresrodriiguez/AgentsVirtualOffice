@@ -7,6 +7,8 @@ export interface Provider {
   baseUrl?: string;
   apiKey?: string;
   apiKeyEnv?: string;
+  /** Sólo claude-code: carpeta de configuración de Claude Code (CLAUDE_CONFIG_DIR), o sea, qué cuenta usa. */
+  configDir?: string;
 }
 
 export interface PublicProvider extends Omit<Provider, "apiKey"> {

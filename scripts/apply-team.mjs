@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Aplica equipo.json a la oficina que está corriendo: actualiza o crea cada persona
+// Aplica equipo.json a la oficina que está corriendo: crea o actualiza los proveedores (cuentas)
+// y cada persona,
 // y borra a quienes no estén en el archivo. Uso: node scripts/apply-team.mjs [equipo.json]
 import { readFile } from "node:fs/promises";
 
@@ -17,9 +18,15 @@ async function call(method, path, body) {
   return data;
 }
 
-const { agents: wanted } = JSON.parse(await readFile(file, "utf8"));
+const { agents: wanted, providers: wantedProviders = [] } = JSON.parse(await readFile(file, "utf8"));
 const office = await call("GET", "/api/office");
 const kept = new Set();
+
+for (const { id, ...fields } of wantedProviders) {
+  if (office.providers.some((p) => p.id === id)) await call("PUT", `/api/providers/${id}`, fields);
+  else await call("POST", "/api/providers", { id, ...fields });
+  console.log(`proveedor: ${fields.name}`);
+}
 
 for (const spec of wanted) {
   const { match, ...fields } = spec;

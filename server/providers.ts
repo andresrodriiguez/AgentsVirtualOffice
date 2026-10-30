@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { ChatMessage, Provider } from "../shared/types.ts";
@@ -324,6 +324,17 @@ function winQuote(arg: string): string {
   return arg === "" || /[\s"&|<>^()%!]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg;
 }
 
+// Cada proveedor puede usar otra cuenta de Claude vía su carpeta de configuración. Se quitan las
+// claves de API del entorno: si existieran, Claude Code facturaría a la API en vez de a la suscripción.
+export function claudeCodeEnv(provider: Provider, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env = { ...base };
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  const dir = provider.configDir?.trim();
+  if (dir) env.CLAUDE_CONFIG_DIR = dir === "~" || dir.startsWith("~/") || dir.startsWith("~\\") ? join(homedir(), dir.slice(1)) : dir;
+  return env;
+}
+
 async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
   const bin = process.env.CLAUDE_BIN || "claude";
   const dir = await mkdtemp(join(tmpdir(), "pixel-office-"));
@@ -334,6 +345,7 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
   const win = process.platform === "win32";
   const child = spawn(win ? winQuote(bin) : bin, win ? args.map(winQuote) : args, {
     cwd: opts.cwd || dir,
+    env: claudeCodeEnv(req.provider),
     shell: win,
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
