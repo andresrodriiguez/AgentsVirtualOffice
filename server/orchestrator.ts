@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { Agent, Assignment, AttachmentInfo, ChatMessage, Office, OfficeEvent, Provider, Settings } from "../shared/types.ts";
 import { streamChat, type ChatRequest, type ConvMessage, type Media, type ToolCall } from "./providers.ts";
 import { defaultSettings, History } from "./store.ts";
@@ -298,7 +300,9 @@ async function runAgent(
     const claudeCode = claudeCodeOptions(agent, provider, settings);
     const memory = (await ctx.memory?.read(agent.id)) ?? "";
     const admin = agent.manager === true && !!ctx.manage;
-    const mail = agent.mail === true && provider.kind === "claude-code";
+    const imapFile = join(resolve(process.env.DATA_DIR ?? "data"), "correo", `${agent.id}.mcp.json`);
+    const imapConfig = agent.imap === true && provider.kind === "claude-code" && existsSync(imapFile) ? imapFile : undefined;
+    const mail = (agent.mail === true && provider.kind === "claude-code") || !!imapConfig;
     const system =
       (withTools || claudeCode ? toolsSystem(agent, settings) : agentSystem(agent)) +
       (mail ? MAIL_RULES : "") +
@@ -319,7 +323,7 @@ async function runAgent(
       let stepText = "";
       let toolCalls: ToolCall[] = [];
       const tools = withTools ? TOOL_SPECS : undefined;
-      for await (const chunk of streamChat({ provider, model: agent.model, effort: agent.effort, mail: agent.mail === true && provider.kind === "claude-code", system, messages: conv, tools, claudeCode })) {
+      for await (const chunk of streamChat({ provider, model: agent.model, effort: agent.effort, mail: agent.mail === true && provider.kind === "claude-code", imapConfig, system, messages: conv, tools, claudeCode })) {
         if (chunk.text) {
           const visible = filter.push(boss ? boss.push(chunk.text) : chunk.text);
           if (visible) {

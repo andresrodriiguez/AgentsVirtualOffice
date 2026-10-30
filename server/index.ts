@@ -141,6 +141,10 @@ function agentPatch(body: Record<string, unknown>): AgentPatch {
     if (typeof body.tools !== "boolean") throw new HttpError(400, '"tools" tiene que ser boolean');
     patch.tools = body.tools;
   }
+  if (body.imap !== undefined) {
+    if (typeof body.imap !== "boolean") throw new HttpError(400, '"imap" tiene que ser boolean');
+    patch.imap = body.imap;
+  }
   if (body.manager !== undefined) {
     if (typeof body.manager !== "boolean") throw new HttpError(400, '"manager" tiene que ser boolean');
     patch.manager = body.manager;
