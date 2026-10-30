@@ -1415,3 +1415,4 @@ details summary {
 @media (prefers-reduced-motion: reduce) {
   .macaw, .macaw span, .cloud, .rain, .flash, .stars { animation-duration: 0.01s; }
 }
+.weather-chip small { color: var(--muted); font-size: 11px; }

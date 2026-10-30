@@ -68,12 +68,14 @@ export function useValencia() {
 }
 
 export function WeatherChip({ hour, phase, weather }: ReturnType<typeof useValencia>) {
-  const time = new Intl.DateTimeFormat("es-VE", { timeZone: TZ, hour: "numeric", minute: "2-digit" }).format(new Date());
+  const fmt = (timeZone: string) => new Intl.DateTimeFormat("es-VE", { timeZone, hour: "numeric", minute: "2-digit" }).format(new Date());
+  const time = fmt(TZ);
+  const miami = fmt("America/New_York");
   const kind = weather?.kind ?? "clear";
   const icon = phase === "night" ? (NIGHT_ICON[kind] ?? WEATHER_ICON[kind]) : WEATHER_ICON[kind];
   return (
     <span className="weather-chip" title={`Valencia · ${hour.toFixed(1)} h`}>
-      {icon} {weather ? `${weather.temp}°` : ""} Valencia · {time}
+      {icon} {weather ? `${weather.temp}°` : ""} Valencia · {time} <small>· Miami {miami}</small>
     </span>
   );
 }
