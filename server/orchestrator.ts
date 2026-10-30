@@ -216,6 +216,7 @@ export function addressedAgent(text: string, agents: Agent[]): Agent | undefined
 }
 
 const HISTORY_RECENT = 4;
+const HISTORY_AUTO_COMPACT = 16000;
 const HISTORY_CLIP_RECENT = 3000;
 const HISTORY_CLIP_OLD = 600;
 
@@ -331,7 +332,8 @@ async function runManageActions(
       }
     }
     try {
-      lines.push(`✓ ${await ctx.manage!(action)}`);
+      const done = await ctx.manage!(action);
+      if (done) lines.push(`✓ ${done}`);
     } catch (err) {
       lines.push(`✕ ${label}: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -355,6 +357,15 @@ async function runAgent(
     const settings: Settings = { ...ctx.settings, workspace: agent.workspace?.trim() || ctx.settings.workspace };
     const withTools = usesTools(agent, provider);
     const claudeCode = claudeCodeOptions(agent, provider, settings);
+    // Red de seguridad sin gastar tokens: si el historial ya es enorme y el agente no abrió hilo nuevo, lo viejo pasa
+    // resumido a su memoria y sólo quedan los últimos mensajes.
+    const past = history.get(agent.id);
+    if (ctx.memory && past.reduce((n, m) => n + m.content.length, 0) > HISTORY_AUTO_COMPACT) {
+      const digest = past.slice(0, -2).map((m) => `${m.role === "user" ? "Andrés" : agent.name}: ${m.content.replace(/\s+/g, " ").slice(0, 160)}`).join("\n");
+      await ctx.memory.apply(agent.id, [{ mode: "append", text: `Resumen automático de la conversación anterior:\n${digest}` }]).catch(() => {});
+      history.reset(agent.id);
+      history.push(agent.id, ...past.slice(-2));
+    }
     const memory = (await ctx.memory?.read(agent.id)) ?? "";
     const admin = agent.manager === true && !!ctx.manage;
     const imapFile = join(resolve(process.env.DATA_DIR ?? "data"), "correo", `${agent.id}.mcp.json`);
@@ -494,7 +505,6 @@ async function runAgent(
     if (thread?.summaries.length && ctx.memory) {
       await ctx.memory.apply(agent.id, [{ mode: "append", text: `Resumen del hilo anterior: ${thread.summaries.join("\n")}` }]).catch((err) => console.error("[hilo]", err));
       history.reset(agent.id);
-      emit({ type: "delta", runId, agentId: agent.id, text: "\n\n🧵 Hilo nuevo: guardé el contexto en mi memoria." });
     }
     emit({ type: "agent_done", runId, agentId: agent.id, text, tokens: sawUsage ? output : Math.ceil(text.length / 4) });
   } catch (err) {

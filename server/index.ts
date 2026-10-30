@@ -723,7 +723,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
       const resumen = typeof action.resumen === "string" && action.resumen.trim() ? action.resumen.trim() : `(sin resumen; últimos mensajes)\n${last}`;
       await memory.apply(target.id, [{ mode: "append", text: `Resumen del hilo anterior: ${resumen}` }]);
       store.history.reset(target.id);
-      return `Abrí un hilo nuevo con ${target.name}; su contexto quedó en su memoria`;
+      return "";
     }
     const url = target ? `${base}/${target.id}` : base;
     const method = action.accion === "crear" ? "POST" : action.accion === "borrar" ? "DELETE" : "PUT";

@@ -181,7 +181,7 @@ export function teamSection(memory: string, canDelegate: boolean, peers: string)
   return `\n\nLibreta común: para algo útil a todos escribe <memoria_equipo>nota breve</memoria_equipo>, nunca claves.${hand}${notes}`;
 }
 
-export const THREAD_AFTER_CHARS = 12000;
+export const THREAD_AFTER_CHARS = 7000;
 
 export function threadSection(historyChars: number): string {
   // Sólo cuando la conversación ya es larga; antes no hace falta ni mencionarlo.
