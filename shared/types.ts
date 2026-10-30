@@ -39,6 +39,8 @@ export interface Agent {
   tools?: boolean;
   /** Sólo Claude Code: puede usar el conector de Gmail de su cuenta, en solo lectura y borradores. */
   mail?: boolean;
+  /** Puede crear y configurar a las demás personas del equipo (con confirmación en lo delicado). */
+  manager?: boolean;
   /** Carpeta de trabajo propia; si falta, se usa la de Ajustes. */
   workspace?: string;
   look?: Look;
@@ -107,7 +109,7 @@ export interface Assignment {
   task: string;
 }
 
-export type ToolName = "list_dir" | "read_file" | "search" | "write_file" | "edit_file" | "run_command";
+export type ToolName = "list_dir" | "read_file" | "search" | "write_file" | "edit_file" | "run_command" | "gestionar_oficina";
 
 export type PermissionDecision = "allow" | "always" | "deny";
 

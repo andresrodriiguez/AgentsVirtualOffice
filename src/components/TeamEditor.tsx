@@ -210,6 +210,10 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
           <input type="checkbox" checked={!!draft.tools} onChange={(e) => set("tools", e.target.checked)} />
           🖥 Puede usar la PC (leer, escribir y correr comandos; te pide permiso)
         </label>
+        <label className="check pc-toggle">
+          <input type="checkbox" checked={!!draft.manager} onChange={(e) => set("manager", e.target.checked)} />
+          🛠 Administra la oficina (crea y configura a los demás; lo delicado te lo pregunta)
+        </label>
         {provider?.kind === "claude-code" && (
           <label className="check pc-toggle">
             <input type="checkbox" checked={!!draft.mail} onChange={(e) => set("mail", e.target.checked)} />

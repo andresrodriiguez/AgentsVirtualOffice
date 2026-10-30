@@ -7,6 +7,7 @@ import type { Agent, Appearance, Layout, Look, OfficeEvent, PermissionDecision, 
 import { generateLookImage, LOOK_FILE_RE, LOOK_MIME, lookFileFromSrc, lookFileName } from "./looks.ts";
 import { AgentMemory } from "./memory.ts";
 import { runMessage } from "./orchestrator.ts";
+import { actionBody, findAgent, type ManageAction } from "./manage.ts";
 import { AttachmentError, type Prepared, prepareAttachments } from "./attachments.ts";
 import { UsageLog } from "./usage.ts";
 import { defaultSettings, publicOffice, Store } from "./store.ts";
@@ -139,6 +140,10 @@ function agentPatch(body: Record<string, unknown>): AgentPatch {
   if (body.tools !== undefined) {
     if (typeof body.tools !== "boolean") throw new HttpError(400, '"tools" tiene que ser boolean');
     patch.tools = body.tools;
+  }
+  if (body.manager !== undefined) {
+    if (typeof body.manager !== "boolean") throw new HttpError(400, '"manager" tiene que ser boolean');
+    patch.manager = body.manager;
   }
   if (body.mail !== undefined) {
     if (typeof body.mail !== "boolean") throw new HttpError(400, '"mail" tiene que ser boolean');
@@ -463,6 +468,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         runMessage(structuredClone(office), text, target || null, broadcast, {
           runId,
           attachments,
+          manage: (action) => manageOffice(action),
           history: store.history,
           memory,
           usage,
@@ -604,6 +610,22 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     }
     throw new HttpError(404, "No encontrado");
   }
+
+  // Mate administra el equipo con la misma API que usa la pantalla "Equipo", así valida igual que ella.
+  const manageOffice = async (action: ManageAction): Promise<string> => {
+    const addr = server.address();
+    const base = `http://${host}:${typeof addr === "object" && addr ? addr.port : port}/api/agents`;
+    const agents = store.office.agents;
+    const target = action.accion === "crear" ? undefined : findAgent(agents, action.quien);
+    const url = target ? `${base}/${target.id}` : base;
+    const method = action.accion === "crear" ? "POST" : action.accion === "borrar" ? "DELETE" : "PUT";
+    const body = action.accion === "borrar" ? undefined : JSON.stringify(actionBody(action));
+    const res = await fetch(url, { method, headers: body ? { "content-type": "application/json" } : undefined, body });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; name?: string };
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+    const name = data.name ?? target?.name ?? String(action.name ?? "");
+    return action.accion === "crear" ? `Creé a ${name}` : action.accion === "borrar" ? `Borré a ${target?.name}` : `Actualicé a ${name}`;
+  };
 
   const server = createServer((req, res) => {
     handle(req, res).catch((err) => {
