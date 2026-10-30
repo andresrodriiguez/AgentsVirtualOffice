@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Agent, Assignment, ChatMessage, Office, OfficeEvent, Provider, Settings } from "../shared/types.ts";
-import { streamChat, type ChatRequest, type ConvMessage, type ToolCall } from "./providers.ts";
+import type { Agent, Assignment, AttachmentInfo, ChatMessage, Office, OfficeEvent, Provider, Settings } from "../shared/types.ts";
+import { streamChat, type ChatRequest, type ConvMessage, type Media, type ToolCall } from "./providers.ts";
 import { defaultSettings, History } from "./store.ts";
 import { AgentMemory, MemoryBlockFilter, memorySection } from "./memory.ts";
 import type { UsageLog } from "./usage.ts";
@@ -21,6 +21,7 @@ export interface RunOptions {
   memory?: AgentMemory;
   usage?: UsageLog;
   commandTimeoutMs?: number;
+  attachments?: { extra: string; media: Media[]; info: AttachmentInfo[] };
 }
 
 interface RunContext {
@@ -226,7 +227,27 @@ function recordUsage(
   });
 }
 
-async function runAgent(ctx: RunContext, agent: Agent, task: string, message: string, from: string | null): Promise<void> {
+/** Lo que el agente recibe además del texto: documentos pegados debajo e imágenes/PDF aparte. */
+interface Extras {
+  extra: string;
+  media: Media[];
+  names: string;
+}
+
+function withExtras(message: string, extras?: Extras): string {
+  return extras?.extra ? `${message}
+
+${extras.extra}` : message;
+}
+
+async function runAgent(
+  ctx: RunContext,
+  agent: Agent,
+  task: string,
+  message: string,
+  from: string | null,
+  extras?: Extras,
+): Promise<void> {
   const { office, runId, history, emit } = ctx;
   emit({ type: "agent_start", runId, agentId: agent.id, task, from });
   try {
@@ -239,7 +260,8 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
     const system =
       (withTools || claudeCode ? toolsSystem(agent, settings) : agentSystem(agent)) + (ctx.memory ? memorySection(memory, true) : "");
     const filter = new MemoryBlockFilter();
-    const conv: ConvMessage[] = [...compactHistory(history.get(agent.id)), { role: "user", content: message }];
+    const media = provider.kind === "claude-code" ? (extras?.media ?? []) : [];
+    const conv: ConvMessage[] = [...compactHistory(history.get(agent.id)), { role: "user", content: withExtras(message, extras), media }];
     let text = "";
     let output = 0;
     let sawUsage = false;
@@ -292,7 +314,8 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
     }
     text = text.trim();
     if (ctx.memory && filter.ops.length) await ctx.memory.apply(agent.id, filter.ops).catch((err) => console.error("[memoria]", err));
-    history.push(agent.id, { role: "user", content: message }, { role: "assistant", content: text });
+    // En el historial quedan sólo los nombres de los adjuntos: reenviarlos enteros en cada llamada sale caro.
+    history.push(agent.id, { role: "user", content: message + (extras?.names ?? "") }, { role: "assistant", content: text });
     emit({ type: "agent_done", runId, agentId: agent.id, text, tokens: sawUsage ? output : Math.ceil(text.length / 4) });
   } catch (err) {
     emit({ type: "agent_error", runId, agentId: agent.id, error: err instanceof Error ? err.message : String(err) });
@@ -319,11 +342,17 @@ export async function runMessage(
     usage: options.usage,
     commandTimeoutMs: options.commandTimeoutMs,
   };
-  emit({ type: "run_start", runId, text, target });
+  const att = options.attachments;
+  emit({ type: "run_start", runId, text, target, ...(att?.info.length ? { attachments: att.info } : {}) });
+  const extras: Extras | undefined = att?.info.length
+    ? { extra: att.extra, media: att.media, names: `
+
+(Adjuntos: ${att.info.map((a) => a.name).join(", ")})` }
+    : undefined;
   try {
     const direct = (target ? office.agents.find((a) => a.id === target) : undefined) ?? addressedAgent(text, office.agents);
     if (direct) {
-      await runAgent(ctx, direct, text, text, null);
+      await runAgent(ctx, direct, text, text, null, extras);
       return runId;
     }
     const lead = findLead(office.agents);
@@ -337,7 +366,7 @@ export async function runMessage(
       try {
         const raw = await collect(ctx, lead, routingSystem(lead, office.agents, (await ctx.memory?.read(lead.id)) ?? ""), [
           ...compactHistory(history.get(lead.id)),
-          { role: "user", content: text },
+          { role: "user", content: text + (extras?.names ?? "") },
         ]);
         routing = parseRouting(raw, office.agents);
       } catch (err) {
@@ -348,7 +377,7 @@ export async function runMessage(
     const assignments = routing?.assignments ?? [];
     emit({ type: "route", runId, leadId: lead.id, note: assignments.length ? (routing?.note ?? "") : "", assignments });
     if (assignments.length === 0) {
-      await runAgent(ctx, lead, text, text, null);
+      await runAgent(ctx, lead, text, text, null, extras);
       return runId;
     }
     await Promise.all(
@@ -366,7 +395,7 @@ export async function runMessage(
         ]
           .filter(Boolean)
           .join("\n\n");
-        return runAgent(ctx, agent, a.task, brief, lead.id);
+        return runAgent(ctx, agent, a.task, brief, lead.id, extras);
       }),
     );
     return runId;

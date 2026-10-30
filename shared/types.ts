@@ -93,6 +93,11 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface AttachmentInfo {
+  name: string;
+  kind: "image" | "pdf" | "text";
+}
+
 export interface Assignment {
   agentId: string;
   task: string;
@@ -103,7 +108,7 @@ export type ToolName = "list_dir" | "read_file" | "search" | "write_file" | "edi
 export type PermissionDecision = "allow" | "always" | "deny";
 
 export type OfficeEvent =
-  | { type: "run_start"; runId: string; text: string; target: string | null }
+  | { type: "run_start"; runId: string; text: string; target: string | null; attachments?: AttachmentInfo[] }
   | { type: "routing"; runId: string; leadId: string }
   | { type: "route"; runId: string; leadId: string; note: string; assignments: Assignment[] }
   | { type: "agent_start"; runId: string; agentId: string; task: string; from: string | null }

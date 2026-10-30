@@ -21,8 +21,15 @@ export interface ToolCall {
   arguments: string;
 }
 
+/** Imagen o PDF adjunto, en base64. Sólo Claude Code lo recibe tal cual; el resto ve el nombre. */
+export interface Media {
+  name: string;
+  mime: string;
+  data: string;
+}
+
 export type ConvMessage =
-  | { role: "user"; content: string }
+  | { role: "user"; content: string; media?: Media[] }
   | { role: "assistant"; content: string; toolCalls?: ToolCall[] }
   | { role: "tool"; toolCallId: string; name: string; content: string; isError?: boolean };
 
@@ -299,7 +306,7 @@ export function toClaudeCodePrompt(messages: ConvMessage[]): string {
   return `Conversación hasta ahora:\n\n${past}\n\nNuevo mensaje del usuario:\n\n${turns[turns.length - 1].content}`;
 }
 
-export function claudeCodeArgs(model: string, systemFile: string, tools: string[], acceptEdits = false): string[] {
+export function claudeCodeArgs(model: string, systemFile: string, tools: string[], acceptEdits = false, streamInput = false): string[] {
   const args = [
     "-p",
     "--output-format",
@@ -320,7 +327,25 @@ export function claudeCodeArgs(model: string, systemFile: string, tools: string[
   if (tools.length) args.push("--allowedTools", tools.join(","));
   if (acceptEdits) args.push("--permission-mode", "acceptEdits");
   if (model && model !== "demo") args.push("--model", model);
+  if (streamInput) args.push("--input-format", "stream-json");
   return args;
+}
+
+// Con adjuntos el prompt va como un mensaje stream-json: las imágenes y PDFs viajan como bloques
+// que el modelo ve directamente, sin que el agente necesite herramientas para abrirlos.
+export function claudeCodeInput(prompt: string, media: Media[]): string {
+  const content: unknown[] = [{ type: "text", text: prompt }];
+  for (const m of media) {
+    const source = { type: "base64", media_type: m.mime, data: m.data };
+    content.push(m.mime === "application/pdf" ? { type: "document", source, title: m.name } : { type: "image", source });
+  }
+  return `${JSON.stringify({ type: "user", message: { role: "user", content } })}
+`;
+}
+
+function lastMedia(messages: ConvMessage[]): Media[] {
+  const last = messages[messages.length - 1];
+  return last?.role === "user" ? (last.media ?? []) : [];
 }
 
 // En Windows `claude` suele ser un .cmd, que sólo arranca vía shell; ahí hay que citar a mano.
@@ -350,7 +375,8 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
   const systemFile = join(dir, "system.md");
   await writeFile(systemFile, req.system, "utf8");
   const opts = req.claudeCode ?? { tools: [] };
-  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits);
+  const media = lastMedia(req.messages);
+  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits, media.length > 0);
   const win = process.platform === "win32";
   const child = spawn(win ? winQuote(bin) : bin, win ? args.map(winQuote) : args, {
     cwd: opts.cwd || dir,
@@ -370,7 +396,8 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
     child.on("close", resolve);
   });
   exited.catch(() => {});
-  child.stdin.end(toClaudeCodePrompt(req.messages));
+  const prompt = toClaudeCodePrompt(req.messages);
+  child.stdin.end(media.length ? claudeCodeInput(prompt, media) : prompt);
   try {
     let usage: ChatChunk["usage"];
     let failure = "";

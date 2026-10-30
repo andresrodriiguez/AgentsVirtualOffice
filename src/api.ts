@@ -12,6 +12,12 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   return data as T;
 }
 
+export interface Upload {
+  name: string;
+  mime: string;
+  data: string;
+}
+
 export interface UsageTotal {
   calls: number;
   input: number;
@@ -29,7 +35,8 @@ export const api = {
   updateProvider: (id: string, p: Partial<Provider>) => call<unknown>("PUT", `/api/providers/${id}`, p),
   deleteProvider: (id: string) => call<unknown>("DELETE", `/api/providers/${id}`),
   saveLayout: (l: Layout) => call<unknown>("PUT", "/api/layout", l),
-  send: (text: string, target: string | null) => call<{ runId: string }>("POST", "/api/message", { text, target }),
+  send: (text: string, target: string | null, files: Upload[] = []) =>
+    call<{ runId: string }>("POST", "/api/message", { text, target, files }),
   reset: (agentId?: string) => call<unknown>("POST", "/api/reset", { agentId }),
   permission: (callId: string, decision: PermissionDecision) => call<unknown>("POST", "/api/permission", { callId, decision }),
   saveSettings: (s: Partial<Settings>) => call<unknown>("PUT", "/api/settings", s),
