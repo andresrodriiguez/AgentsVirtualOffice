@@ -11,7 +11,7 @@ import { Permissions, resolvePath } from "./tools.ts";
 
 const MAX_BODY = 1024 * 1024;
 const HEARTBEAT_MS = 15_000;
-const PROVIDER_KINDS: ProviderKind[] = ["anthropic", "openai", "demo"];
+const PROVIDER_KINDS: ProviderKind[] = ["anthropic", "openai", "claude-code", "demo"];
 const DECISIONS: PermissionDecision[] = ["allow", "always", "deny"];
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));

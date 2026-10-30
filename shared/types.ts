@@ -1,4 +1,4 @@
-export type ProviderKind = "anthropic" | "openai" | "demo";
+export type ProviderKind = "anthropic" | "openai" | "claude-code" | "demo";
 
 export interface Provider {
   id: string;

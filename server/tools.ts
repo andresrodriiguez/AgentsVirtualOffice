@@ -88,7 +88,7 @@ export const TOOL_SPECS: ToolSpec[] = [
   },
   {
     name: "run_command",
-    description: "Ejecuta un comando de shell (/bin/sh -c) y devuelve stdout, stderr y el código de salida. Timeout de 120 s, sin entrada interactiva.",
+    description: `Ejecuta un comando de shell (${process.platform === "win32" ? "cmd.exe en Windows" : "/bin/sh -c"}) y devuelve stdout, stderr y el código de salida. Timeout de 120 s, sin entrada interactiva.`,
     parameters: schema(
       { command: str("Comando a ejecutar."), cwd: str("Carpeta donde ejecutarlo. Default: el workspace.") },
       ["command"],
@@ -360,7 +360,10 @@ function runCommand(ctx: ToolContext, args: Record<string, unknown>): Promise<To
     let output = "";
     let total = 0;
     let timedOut = false;
-    const child = spawn("/bin/sh", ["-c", command], { cwd, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+    const win = process.platform === "win32";
+    const child = win
+      ? spawn(command, { cwd, shell: true, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] })
+      : spawn("/bin/sh", ["-c", command], { cwd, detached: true, stdio: ["ignore", "pipe", "pipe"] });
     const onData = (chunk: Buffer) => {
       const s = chunk.toString("utf8");
       total += s.length;
@@ -370,10 +373,15 @@ function runCommand(ctx: ToolContext, args: Record<string, unknown>): Promise<To
     child.stderr.on("data", onData);
     const timer = setTimeout(() => {
       timedOut = true;
-      try {
-        process.kill(-child.pid!, "SIGKILL");
-      } catch {
-        child.kill("SIGKILL");
+      if (win && child.pid) {
+        // Mata también los procesos hijos del cmd.exe.
+        spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" }).on("error", () => child.kill());
+      } else {
+        try {
+          process.kill(-child.pid!, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
       }
     }, timeoutMs);
     child.on("error", (err) => {

@@ -130,14 +130,14 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
               {office.providers.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
-                  {p.kind !== "demo" && !p.hasKey && !p.baseUrl ? " (sin key)" : ""}
+                  {p.kind !== "demo" && p.kind !== "claude-code" && !p.hasKey && !p.baseUrl ? " (sin key)" : ""}
                 </option>
               ))}
             </select>
           </label>
           <label>
             Modelo
-            <input value={draft.model} placeholder={provider?.kind === "anthropic" ? "claude-sonnet-5-5" : "gpt-4o-mini"} onChange={(e) => set("model", e.target.value)} />
+            <input value={draft.model} placeholder={provider?.kind === "anthropic" ? "claude-sonnet-5-5" : provider?.kind === "claude-code" ? "sonnet" : "gpt-4o-mini"} onChange={(e) => set("model", e.target.value)} />
           </label>
           <label>
             Escritorio

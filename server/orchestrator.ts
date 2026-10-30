@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Agent, Assignment, ChatMessage, Office, OfficeEvent, Provider, Settings } from "../shared/types.ts";
-import { streamChat, type ConvMessage, type ToolCall } from "./providers.ts";
+import { streamChat, type ChatRequest, type ConvMessage, type ToolCall } from "./providers.ts";
 import { defaultSettings, History } from "./store.ts";
 import { Permissions, runToolCall, TOOL_SPECS } from "./tools.ts";
 
@@ -138,7 +138,17 @@ Las rutas relativas se resuelven desde ahí.
 }
 
 function usesTools(agent: Agent, provider: Provider): boolean {
-  return agent.tools === true && provider.kind !== "demo";
+  return agent.tools === true && provider.kind !== "demo" && provider.kind !== "claude-code";
+}
+
+const CLAUDE_CODE_READ_TOOLS = ["Read", "Glob", "Grep"];
+const CLAUDE_CODE_WRITE_TOOLS = ["Edit", "Write", "Bash"];
+
+// Claude Code no pasa por el diálogo de permisos de la oficina: sin "modo libre" sólo puede leer.
+function claudeCodeOptions(agent: Agent, provider: Provider, settings: Settings): ChatRequest["claudeCode"] {
+  if (provider.kind !== "claude-code" || agent.tools !== true) return undefined;
+  const tools = settings.autoApprove ? [...CLAUDE_CODE_READ_TOOLS, ...CLAUDE_CODE_WRITE_TOOLS] : CLAUDE_CODE_READ_TOOLS;
+  return { tools, cwd: settings.workspace, acceptEdits: settings.autoApprove };
 }
 
 function routingSystem(lead: Agent, agents: Agent[]): string {
@@ -174,7 +184,8 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
     const provider = office.providers.find((p) => p.id === agent.providerId);
     if (!provider) throw new Error(`Provider "${agent.providerId}" no existe`);
     const withTools = usesTools(agent, provider);
-    const system = withTools ? toolsSystem(agent, ctx.settings) : agentSystem(agent);
+    const claudeCode = claudeCodeOptions(agent, provider, ctx.settings);
+    const system = withTools || claudeCode ? toolsSystem(agent, ctx.settings) : agentSystem(agent);
     const conv: ConvMessage[] = [...history.get(agent.id), { role: "user", content: message }];
     let text = "";
     let output = 0;
@@ -187,7 +198,7 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
       let stepText = "";
       let toolCalls: ToolCall[] = [];
       const tools = withTools ? TOOL_SPECS : undefined;
-      for await (const chunk of streamChat({ provider, model: agent.model, system, messages: conv, tools })) {
+      for await (const chunk of streamChat({ provider, model: agent.model, system, messages: conv, tools, claudeCode })) {
         if (chunk.text) {
           if (!stepText && text && !text.endsWith("\n")) say("\n\n");
           stepText += chunk.text;

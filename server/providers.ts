@@ -1,4 +1,9 @@
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createInterface } from "node:readline";
 import type { ChatMessage, Provider } from "../shared/types.ts";
 import { resolveKey } from "./store.ts";
 import type { ToolSpec } from "./tools.ts";
@@ -34,6 +39,8 @@ export interface ChatRequest {
   messages: ConvMessage[];
   tools?: ToolSpec[];
   signal?: AbortSignal;
+  /** Sólo Claude Code: herramientas propias que puede usar y carpeta donde corre. */
+  claudeCode?: { tools: string[]; cwd?: string; acceptEdits?: boolean };
 }
 
 export async function* parseSSE(
@@ -282,6 +289,106 @@ async function* streamOpenAI(req: ChatRequest): AsyncGenerator<ChatChunk> {
   if (usage) yield { usage };
 }
 
+export function toClaudeCodePrompt(messages: ConvMessage[]): string {
+  const turns = messages.filter((m): m is ChatMessage => m.role !== "tool");
+  if (turns.length === 1) return turns[0].content;
+  const past = turns
+    .slice(0, -1)
+    .map((m) => `${m.role === "user" ? "Usuario" : "Vos"}: ${m.content}`)
+    .join("\n\n");
+  return `Conversación hasta ahora:\n\n${past}\n\nNuevo mensaje del usuario:\n\n${turns[turns.length - 1].content}`;
+}
+
+export function claudeCodeArgs(model: string, systemFile: string, tools: string[], acceptEdits = false): string[] {
+  const args = [
+    "-p",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-partial-messages",
+    "--no-session-persistence",
+    "--strict-mcp-config",
+    "--system-prompt-file",
+    systemFile,
+    "--tools",
+    tools.join(","),
+  ];
+  if (tools.length) args.push("--allowedTools", tools.join(","));
+  if (acceptEdits) args.push("--permission-mode", "acceptEdits");
+  if (model && model !== "demo") args.push("--model", model);
+  return args;
+}
+
+// En Windows `claude` suele ser un .cmd, que sólo arranca vía shell; ahí hay que citar a mano.
+function winQuote(arg: string): string {
+  return arg === "" || /[\s"&|<>^()%!]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg;
+}
+
+async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
+  const bin = process.env.CLAUDE_BIN || "claude";
+  const dir = await mkdtemp(join(tmpdir(), "pixel-office-"));
+  const systemFile = join(dir, "system.md");
+  await writeFile(systemFile, req.system, "utf8");
+  const opts = req.claudeCode ?? { tools: [] };
+  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits);
+  const win = process.platform === "win32";
+  const child = spawn(win ? winQuote(bin) : bin, win ? args.map(winQuote) : args, {
+    cwd: opts.cwd || dir,
+    shell: win,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const onAbort = () => child.kill();
+  req.signal?.addEventListener("abort", onAbort);
+  let stderr = "";
+  child.stderr.on("data", (c: Buffer) => {
+    if (stderr.length < 2000) stderr += c.toString("utf8");
+  });
+  const exited = new Promise<number | null>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", resolve);
+  });
+  exited.catch(() => {});
+  child.stdin.end(toClaudeCodePrompt(req.messages));
+  try {
+    let usage: ChatChunk["usage"];
+    let failure = "";
+    for await (const line of createInterface({ input: child.stdout })) {
+      let msg: any;
+      try {
+        msg = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const ev = msg.type === "stream_event" ? msg.event : undefined;
+      if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta" && !msg.parent_tool_use_id) {
+        yield { text: ev.delta.text };
+      } else if (ev?.type === "content_block_start" && ev.content_block?.type === "tool_use" && !msg.parent_tool_use_id) {
+        yield { text: `\n\n_› ${ev.content_block.name}_\n\n` };
+      } else if (msg.type === "result") {
+        if (msg.usage) usage = { input: msg.usage.input_tokens ?? 0, output: msg.usage.output_tokens ?? 0 };
+        if (msg.is_error) failure = String(msg.result || msg.subtype || "error");
+      }
+    }
+    let code: number | null;
+    try {
+      code = await exited;
+    } catch (err) {
+      throw new Error(
+        `No se pudo ejecutar "${bin}". ¿Está instalado Claude Code y has iniciado sesión? (${err instanceof Error ? err.message : err})`,
+      );
+    }
+    if (req.signal?.aborted) throw new Error("Cancelado");
+    if (failure) throw new Error(`Claude Code: ${failure.slice(0, 300)}`);
+    if (code !== 0 && !usage) throw new Error(`Claude Code terminó con código ${code}: ${stderr.trim().slice(0, 300) || "sin detalles"}`);
+    if (usage) yield { usage };
+  } finally {
+    req.signal?.removeEventListener("abort", onAbort);
+    if (child.exitCode === null) child.kill();
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 const DEMO_ROLES: { match: RegExp; bullets: string[] }[] = [
   {
     match: /frontend|\bui\b|ux/,
@@ -342,6 +449,8 @@ export function streamChat(req: ChatRequest): AsyncIterable<ChatChunk> {
       return streamAnthropic(req);
     case "openai":
       return streamOpenAI(req);
+    case "claude-code":
+      return streamClaudeCode(req);
     case "demo":
       return streamDemo(req);
     default:

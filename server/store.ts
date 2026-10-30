@@ -35,10 +35,13 @@ export const DEFAULT_LAYOUT: Layout = {
   ],
 };
 
+export const CLAUDE_CODE_PROVIDER: Provider = { id: "claude-code", name: "Claude Code (tu suscripción)", kind: "claude-code" };
+
 export function defaultProviders(): Provider[] {
   return [
     { id: "demo", name: "Demo (sin API key)", kind: "demo" },
     { id: "anthropic", name: "Anthropic", kind: "anthropic", apiKeyEnv: "ANTHROPIC_API_KEY" },
+    CLAUDE_CODE_PROVIDER,
     {
       id: "openai",
       name: "OpenAI-compatible",
@@ -70,6 +73,19 @@ export function migrateOffice(office: Office): boolean {
   };
   let changed = JSON.stringify(current) !== JSON.stringify(next);
   office.settings = next;
+  if (!(office.providers ?? []).some((p) => p.kind === "claude-code")) {
+    office.providers = [...(office.providers ?? []), { ...CLAUDE_CODE_PROVIDER }];
+    // Oficinas creadas antes de este provider: si todos estaban en demo, pasan a Claude Code.
+    const agents = office.agents ?? [];
+    const demoIds = new Set(office.providers.filter((p) => p.kind === "demo").map((p) => p.id));
+    if (agents.length && agents.every((a) => demoIds.has(a.providerId))) {
+      for (const agent of agents) {
+        agent.providerId = CLAUDE_CODE_PROVIDER.id;
+        agent.model = "sonnet";
+      }
+    }
+    changed = true;
+  }
   for (const agent of office.agents ?? []) {
     if (typeof agent.tools !== "boolean") {
       agent.tools = false;

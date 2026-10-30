@@ -5,6 +5,7 @@ import { api } from "../api.ts";
 const KIND_HELP: Record<ProviderKind, string> = {
   anthropic: "API de Anthropic (Claude).",
   openai: "Cualquier API compatible con OpenAI: OpenAI, OpenRouter, Ollama (http://localhost:11434/v1), LM Studio, vLLM…",
+  "claude-code": "Usa el comando claude de este ordenador con tu suscripción de Claude (Pro/Max). No necesita API key; cuenta para los límites de tu plan.",
   demo: "Respuestas simuladas, sin red ni costo. Sirve para probar la oficina.",
 };
 
@@ -25,18 +26,19 @@ function ProviderRow({ p, inUse, onError }: { p: PublicProvider; inUse: boolean;
           <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as ProviderKind })}>
             <option value="anthropic">Anthropic</option>
             <option value="openai">OpenAI-compatible</option>
+            <option value="claude-code">Claude Code (suscripción)</option>
             <option value="demo">Demo</option>
           </select>
         </label>
         <label>
           Estado
-          <span className={`status ${p.kind === "demo" || p.hasKey ? "ok" : "off"}`}>
-            {p.kind === "demo" ? "listo" : p.hasKey ? "key cargada" : "sin key"}
+          <span className={`status ${p.kind === "demo" || p.kind === "claude-code" || p.hasKey ? "ok" : "off"}`}>
+            {p.kind === "demo" || p.kind === "claude-code" ? "listo" : p.hasKey ? "key cargada" : "sin key"}
           </span>
         </label>
       </div>
       <p className="hint">{KIND_HELP[draft.kind]}</p>
-      {draft.kind !== "demo" && (
+      {draft.kind !== "demo" && draft.kind !== "claude-code" && (
         <div className="row3">
           <label>
             URL base
