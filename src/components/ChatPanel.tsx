@@ -26,6 +26,22 @@ const ACCEPT = "image/*,.pdf,.docx,.txt,.md,.csv,.json,.html,.xml,.yml,.yaml,.js
 
 let nextId = 1;
 
+type Recognizer = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+const SpeechCtor = (): (new () => Recognizer) | undefined => {
+  const w = window as unknown as { SpeechRecognition?: new () => Recognizer; webkitSpeechRecognition?: new () => Recognizer };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+};
+
 function readUpload(file: File, name: string): Promise<Pending> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -56,6 +72,10 @@ export function ChatPanel({ office, runs, target, setTarget, onSend, busy }: Pro
   const [drag, setDrag] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const [speak, setSpeak] = useState(() => localStorage.getItem("oficina-voz") === "1");
+  const rec = useRef<Recognizer | null>(null);
+  const spoken = useRef(new Set<string>());
   const log = useRef<HTMLDivElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -72,6 +92,56 @@ export function ChatPanel({ office, runs, target, setTarget, onSend, busy }: Pro
   useEffect(() => {
     if (target) input.current?.focus();
   }, [target]);
+
+  const toggleMic = () => {
+    if (rec.current) {
+      rec.current.stop();
+      return;
+    }
+    const Ctor = SpeechCtor();
+    if (!Ctor) {
+      setError("Tu navegador no tiene dictado por voz (usa Chrome o Edge).");
+      return;
+    }
+    const r = new Ctor();
+    r.lang = "es-419";
+    r.continuous = true;
+    r.interimResults = false;
+    r.onresult = (e) => {
+      let said = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) said += e.results[i][0].transcript;
+      if (said) setText((t) => `${t}${t && !/\s$/.test(t) ? " " : ""}${said.trim()}`);
+    };
+    r.onend = () => {
+      rec.current = null;
+      setListening(false);
+    };
+    r.onerror = () => {
+      rec.current = null;
+      setListening(false);
+      setError("No pude usar el micrófono: revisa el permiso del navegador.");
+    };
+    rec.current = r;
+    setListening(true);
+    setError(null);
+    r.start();
+  };
+
+  // Con la voz activada, cada respuesta terminada se lee en voz alta (una vez).
+  useEffect(() => {
+    if (!speak || !("speechSynthesis" in window)) return;
+    for (const r of runs)
+      for (const e of r.entries) {
+        const key = `${r.id}:${e.agentId}`;
+        if (e.status !== "done" || spoken.current.has(key)) continue;
+        spoken.current.add(key);
+        const plain = entryText(e).replace(/[`*_#>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 700);
+        if (!plain) continue;
+        const u = new SpeechSynthesisUtterance(plain);
+        u.lang = "es-419";
+        window.speechSynthesis.speak(u);
+      }
+  }, [runs, speak]);
 
   const add = async (list: File[], screenshots = false) => {
     if (!list.length) return;
@@ -234,6 +304,22 @@ export function ChatPanel({ office, runs, target, setTarget, onSend, busy }: Pro
         <div className="input-row">
           <button className="clip" title="Adjuntar imágenes o documentos" onClick={() => picker.current?.click()}>
             📎
+          </button>
+          <button className={`clip ${listening ? "rec" : ""}`} title={listening ? "Detener dictado" : "Dictar con la voz"} onClick={toggleMic}>
+            🎤
+          </button>
+          <button
+            className={`clip ${speak ? "rec" : ""}`}
+            title={speak ? "Dejar de leer las respuestas en voz alta" : "Leer las respuestas en voz alta"}
+            onClick={() => {
+              const next = !speak;
+              setSpeak(next);
+              localStorage.setItem("oficina-voz", next ? "1" : "0");
+              if (!next) window.speechSynthesis?.cancel();
+              else spoken.current = new Set(runs.flatMap((r) => r.entries.map((e) => `${r.id}:${e.agentId}`)));
+            }}
+          >
+            🔊
           </button>
           <input
             ref={picker}

@@ -1273,3 +1273,9 @@ details summary {
 .task-days select {
   margin-left: auto;
 }
+
+.clip.rec {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: blink 1s infinite;
+}
