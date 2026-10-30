@@ -7,6 +7,7 @@ import type { Agent, Appearance, Layout, Look, OfficeEvent, PermissionDecision, 
 import { generateLookImage, LOOK_FILE_RE, LOOK_MIME, lookFileFromSrc, lookFileName } from "./looks.ts";
 import { AgentMemory } from "./memory.ts";
 import { runMessage } from "./orchestrator.ts";
+import { actionBody, findAgent, type ManageAction } from "./manage.ts";
 import { AttachmentError, type Prepared, prepareAttachments } from "./attachments.ts";
 import { UsageLog } from "./usage.ts";
 import { defaultSettings, publicOffice, Store } from "./store.ts";
@@ -139,6 +140,18 @@ function agentPatch(body: Record<string, unknown>): AgentPatch {
   if (body.tools !== undefined) {
     if (typeof body.tools !== "boolean") throw new HttpError(400, '"tools" tiene que ser boolean');
     patch.tools = body.tools;
+  }
+  if (body.imap !== undefined) {
+    if (typeof body.imap !== "boolean") throw new HttpError(400, '"imap" tiene que ser boolean');
+    patch.imap = body.imap;
+  }
+  if (body.manager !== undefined) {
+    if (typeof body.manager !== "boolean") throw new HttpError(400, '"manager" tiene que ser boolean');
+    patch.manager = body.manager;
+  }
+  if (body.mail !== undefined) {
+    if (typeof body.mail !== "boolean") throw new HttpError(400, '"mail" tiene que ser boolean');
+    patch.mail = body.mail;
   }
   if (body.look !== undefined) patch.look = validLook(body.look);
   if (body.appearance !== undefined) patch.appearance = asObject(body.appearance) as unknown as Appearance;
@@ -459,6 +472,20 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         runMessage(structuredClone(office), text, target || null, broadcast, {
           runId,
           attachments,
+          manage: (action) => manageOffice(action),
+          askLead: (from, request) => {
+            const lead = store.office.agents.find((a) => a.lead);
+            if (!lead || lead.id === from.id) return;
+            const text = `Solicitud de ${from.name} (${from.role}): ${request}`;
+            runMessage(structuredClone(store.office), text, lead.id, broadcast, {
+              history: store.history,
+              memory,
+              usage,
+              permissions,
+              commandTimeoutMs: options.commandTimeoutMs,
+              manage: (action) => manageOffice(action),
+            }).catch((err) => console.error("[solicitud]", err));
+          },
           history: store.history,
           memory,
           usage,
@@ -600,6 +627,30 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     }
     throw new HttpError(404, "No encontrado");
   }
+
+  // Mate administra el equipo con la misma API que usa la pantalla "Equipo", así valida igual que ella.
+  const manageOffice = async (action: ManageAction): Promise<string> => {
+    const addr = server.address();
+    const base = `http://${host}:${typeof addr === "object" && addr ? addr.port : port}/api/agents`;
+    const agents = store.office.agents;
+    const target = action.accion === "crear" ? undefined : findAgent(agents, action.quien);
+    if (action.accion === "nuevo_hilo") {
+      if (!target) throw new Error("no encuentro a esa persona");
+      const last = store.history.get(target.id).slice(-4).map((m) => `${m.role === "user" ? "Andrés" : target.name}: ${m.content.slice(0, 500)}`).join("\n");
+      const resumen = typeof action.resumen === "string" && action.resumen.trim() ? action.resumen.trim() : `(sin resumen; últimos mensajes)\n${last}`;
+      await memory.apply(target.id, [{ mode: "append", text: `Resumen del hilo anterior: ${resumen}` }]);
+      store.history.reset(target.id);
+      return `Abrí un hilo nuevo con ${target.name}; su contexto quedó en su memoria`;
+    }
+    const url = target ? `${base}/${target.id}` : base;
+    const method = action.accion === "crear" ? "POST" : action.accion === "borrar" ? "DELETE" : "PUT";
+    const body = action.accion === "borrar" ? undefined : JSON.stringify(actionBody(action));
+    const res = await fetch(url, { method, headers: body ? { "content-type": "application/json" } : undefined, body });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; name?: string };
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+    const name = data.name ?? target?.name ?? String(action.name ?? "");
+    return action.accion === "crear" ? `Creé a ${name}` : action.accion === "borrar" ? `Borré a ${target?.name}` : `Actualicé a ${name}`;
+  };
 
   const server = createServer((req, res) => {
     handle(req, res).catch((err) => {

@@ -49,6 +49,10 @@ export interface ChatRequest {
   /** Sólo Claude Code: herramientas propias que puede usar y carpeta donde corre. */
   claudeCode?: { tools: string[]; cwd?: string; acceptEdits?: boolean };
   effort?: string;
+  /** Sólo Claude Code: habilita el conector de Gmail de la cuenta (lectura y borradores). */
+  mail?: boolean;
+  /** Sólo Claude Code: archivo de configuración MCP del correo IMAP de este agente. */
+  imapConfig?: string;
 }
 
 export async function* parseSSE(
@@ -307,7 +311,31 @@ export function toClaudeCodePrompt(messages: ConvMessage[]): string {
   return `Conversación hasta ahora:\n\n${past}\n\nNuevo mensaje del usuario:\n\n${turns[turns.length - 1].content}`;
 }
 
-export function claudeCodeArgs(model: string, systemFile: string, tools: string[], acceptEdits = false, streamInput = false, effort = ""): string[] {
+// Herramientas del conector de Gmail de claude.ai que se permiten: buscar, leer y dejar borradores.
+// Enviar, responder, reenviar, borrar o etiquetar nunca se habilitan.
+export const GMAIL_TOOLS = [
+  "search_threads",
+  "get_thread",
+  "get_message",
+  "list_labels",
+  "list_drafts",
+  "get_draft",
+  "create_draft",
+  "update_draft",
+].map((t) => `mcp__claude_ai_Gmail__${t}`);
+
+export const IMAP_TOOLS = ["buscar_correos", "leer_correo", "listar_carpetas", "crear_borrador"].map((t) => `mcp__correo__${t}`);
+
+export function claudeCodeArgs(
+  model: string,
+  systemFile: string,
+  tools: string[],
+  acceptEdits = false,
+  streamInput = false,
+  effort = "",
+  mail = false,
+  imapConfig = "",
+): string[] {
   const args = [
     "-p",
     "--output-format",
@@ -315,7 +343,6 @@ export function claudeCodeArgs(model: string, systemFile: string, tools: string[
     "--verbose",
     "--include-partial-messages",
     "--no-session-persistence",
-    "--strict-mcp-config",
     // Sin skills ni comandos: son tokens de contexto que estos agentes no usan.
     "--disable-slash-commands",
     "--setting-sources",
@@ -325,7 +352,11 @@ export function claudeCodeArgs(model: string, systemFile: string, tools: string[
     "--tools",
     tools.join(","),
   ];
-  if (tools.length) args.push("--allowedTools", tools.join(","));
+  // Por defecto no se carga ningún conector (cuestan contexto y dan acceso de más); con `mail` sólo Gmail.
+  if (!mail) args.push("--strict-mcp-config");
+  if (imapConfig) args.push("--mcp-config", imapConfig);
+  const allowed = [...tools, ...(mail ? GMAIL_TOOLS : []), ...(imapConfig ? IMAP_TOOLS : [])];
+  if (allowed.length) args.push("--allowedTools", allowed.join(","));
   if (acceptEdits) args.push("--permission-mode", "acceptEdits");
   if (model && model !== "demo") args.push("--model", model);
   if (streamInput) args.push("--input-format", "stream-json");
@@ -378,7 +409,7 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
   await writeFile(systemFile, req.system, "utf8");
   const opts = req.claudeCode ?? { tools: [] };
   const media = lastMedia(req.messages);
-  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits, media.length > 0, req.effort);
+  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits, media.length > 0, req.effort, req.mail, req.imapConfig);
   const win = process.platform === "win32";
   const child = spawn(win ? winQuote(bin) : bin, win ? args.map(winQuote) : args, {
     cwd: opts.cwd || dir,

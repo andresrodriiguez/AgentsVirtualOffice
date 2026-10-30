@@ -190,6 +190,8 @@ export function summarize(name: ToolName, args: Record<string, unknown>, ws: str
       const cmd = clip(argString(args, "command") ?? "", 200);
       return args.cwd !== undefined ? `${cmd}  (en ${path})` : cmd;
     }
+    case "gestionar_oficina":
+      return "cambiar el equipo";
   }
 }
 
