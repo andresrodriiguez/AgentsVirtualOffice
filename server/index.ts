@@ -621,6 +621,14 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     const base = `http://${host}:${typeof addr === "object" && addr ? addr.port : port}/api/agents`;
     const agents = store.office.agents;
     const target = action.accion === "crear" ? undefined : findAgent(agents, action.quien);
+    if (action.accion === "nuevo_hilo") {
+      if (!target) throw new Error("no encuentro a esa persona");
+      const last = store.history.get(target.id).slice(-4).map((m) => `${m.role === "user" ? "Andrés" : target.name}: ${m.content.slice(0, 500)}`).join("\n");
+      const resumen = typeof action.resumen === "string" && action.resumen.trim() ? action.resumen.trim() : `(sin resumen; últimos mensajes)\n${last}`;
+      await memory.apply(target.id, [{ mode: "append", text: `Resumen del hilo anterior: ${resumen}` }]);
+      store.history.reset(target.id);
+      return `Abrí un hilo nuevo con ${target.name}; su contexto quedó en su memoria`;
+    }
     const url = target ? `${base}/${target.id}` : base;
     const method = action.accion === "crear" ? "POST" : action.accion === "borrar" ? "DELETE" : "PUT";
     const body = action.accion === "borrar" ? undefined : JSON.stringify(actionBody(action));

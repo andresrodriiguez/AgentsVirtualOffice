@@ -27,3 +27,16 @@ describe("administración de la oficina", () => {
     expect(f.invalid).toHaveLength(1);
   });
 });
+
+describe("hilos nuevos", () => {
+  it("saca el resumen de <nuevo_hilo> aunque llegue partido", async () => {
+    const { ThreadBlockFilter } = await import("../../server/manage.ts");
+    const f = new ThreadBlockFilter();
+    const text = "Listo. <nuevo_" + "hilo>Se decidió X; falta Y.</nuevo_" + "hilo>";
+    let out = "";
+    for (let i = 0; i < text.length; i += 4) out += f.push(text.slice(i, i + 4));
+    out += f.flush();
+    expect(out).toBe("Listo. ");
+    expect(f.summaries).toEqual(["Se decidió X; falta Y."]);
+  });
+});
