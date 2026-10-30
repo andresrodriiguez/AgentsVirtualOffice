@@ -116,25 +116,25 @@ export function demoRoute(text: string, agents: Agent[]): Routing | null {
   const names = picked.map((a) => a.name);
   const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
   return {
-    note: `Esto lo ${picked.length === 1 ? "agarra" : "agarran"} ${list}.`,
-    assignments: picked.map((a) => ({ agentId: a.id, task: `Encargate de la parte de ${a.role}: ${text}` })),
+    note: `Esto lo ${picked.length === 1 ? "toma" : "toman"} ${list}.`,
+    assignments: picked.map((a) => ({ agentId: a.id, task: `Encárgate de la parte de ${a.role}: ${text}` })),
   };
 }
 
 function agentSystem(agent: Agent): string {
-  return `${agent.prompt}\n\nTu nombre es ${agent.name} y tu rol en la oficina es: ${agent.role}.`;
+  return `${agent.prompt}\n\nTu nombre es ${agent.name} y tu rol en la oficina es: ${agent.role}.\nResponde siempre en español neutro latinoamericano: tutea, sin voseo ni regionalismos.`;
 }
 
 function toolsSystem(agent: Agent, settings: Settings): string {
   return `${agentSystem(agent)}
 
-Tenés acceso a la computadora del usuario mediante herramientas: listar carpetas, leer y buscar en archivos, escribir y editar archivos, y ejecutar comandos de shell.
+Tienes acceso a la computadora del usuario mediante herramientas: listar carpetas, leer y buscar en archivos, escribir y editar archivos, y ejecutar comandos de shell.
 La carpeta de trabajo (workspace) es: ${settings.workspace}
 Las rutas relativas se resuelven desde ahí.
-- Antes de modificar algo, mirá primero: listá, leé o buscá para entender qué hay.
-- Contá brevemente qué vas a hacer y qué hiciste.
+- Antes de modificar algo, mira primero: lista, lee o busca para entender qué hay.
+- Cuenta brevemente qué vas a hacer y qué hiciste.
 - No hagas acciones destructivas (borrar, sobrescribir trabajo ajeno, comandos irreversibles) salvo que el usuario lo pida explícitamente.
-- Escribir, editar, ejecutar comandos o leer fuera del workspace puede requerir que el usuario lo apruebe; si lo deniega, no insistas y seguí con lo que puedas.`;
+- Escribir, editar, ejecutar comandos o leer fuera del workspace puede requerir que el usuario lo apruebe; si lo deniega, no insistas y sigue con lo que puedas.`;
 }
 
 function usesTools(agent: Agent, provider: Provider): boolean {
@@ -158,13 +158,13 @@ function routingSystem(lead: Agent, agents: Agent[]): string {
     .join("\n");
   return `${agentSystem(lead)}
 
-Sos quien reparte el trabajo. Tu equipo:
+Eres quien reparte el trabajo. Tu equipo:
 ${roster || "(no hay nadie más en la oficina)"}
 
-Decidí a quién le toca el pedido del usuario. Respondé SOLO con un objeto JSON, sin texto alrededor, con esta forma:
+Decide a quién le toca el pedido del usuario. Responde SOLO con un objeto JSON, sin texto alrededor, con esta forma:
 {"note":"frase corta para el usuario","assignments":[{"agent":"<id>","task":"instrucción concreta para esa persona"}]}
-Usá como máximo ${MAX_ASSIGNMENTS} asignaciones. Si podés responder vos solo o es charla, devolvé "assignments": [].
-Si el pedido requiere mirar, crear o cambiar archivos, o correr algo en la computadora del usuario, asignalo SOLO a alguien que "puede usar la PC". Si nadie puede, decilo en la nota y no lo asignes.`;
+Usa como máximo ${MAX_ASSIGNMENTS} asignaciones. Si puedes responder tú solo o es charla, devuelve "assignments": [].
+Si el pedido requiere mirar, crear o cambiar archivos, o correr algo en la computadora del usuario, asígnalo SOLO a alguien que "puede usar la PC". Si nadie puede, dilo en la nota y no lo asignes.`;
 }
 
 async function collect(agent: Agent, office: Office, system: string, messages: ChatMessage[]): Promise<string> {
@@ -212,7 +212,7 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
       }
       if (!withTools || toolCalls.length === 0) break;
       if (step >= MAX_TOOL_ITERATIONS) {
-        say(`${text && !text.endsWith("\n") ? "\n\n" : ""}(Me frené: llegué al máximo de ${MAX_TOOL_ITERATIONS} pasos con herramientas.)`);
+        say(`${text && !text.endsWith("\n") ? "\n\n" : ""}(Me detuve: llegué al máximo de ${MAX_TOOL_ITERATIONS} pasos con herramientas.)`);
         break;
       }
       conv.push({ role: "assistant", content: stepText, toolCalls });
@@ -297,9 +297,9 @@ export async function runMessage(
           .join("\n");
         const brief = [
           `Tu tarea (de ${lead.name}): ${a.task}`,
-          others ? `El resto del pedido lo hacen tus compañeros, no lo hagas vos:\n${others}` : "",
+          others ? `El resto del pedido lo hacen tus compañeros, no lo hagas tú:\n${others}` : "",
           `Pedido original del usuario, sólo como contexto: ${text}`,
-          "Hacé únicamente tu parte y entregá el resultado directo, sin presentarte.",
+          "Haz únicamente tu parte y entrega el resultado directo, sin presentarte.",
         ]
           .filter(Boolean)
           .join("\n\n");

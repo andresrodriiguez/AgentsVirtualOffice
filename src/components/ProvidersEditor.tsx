@@ -107,13 +107,13 @@ function SettingsCard({ office, onError }: { office: PublicOffice; onError: (m: 
       <h3>Ajustes</h3>
       <label>
         Carpeta de trabajo (donde leen y escriben las personas con acceso a la PC)
-        <input value={draft.workspace} onChange={(e) => setDraft({ ...draft, workspace: e.target.value })} placeholder="/home/vos/proyectos" />
+        <input value={draft.workspace} onChange={(e) => setDraft({ ...draft, workspace: e.target.value })} placeholder="/home/tu-usuario/proyectos" />
       </label>
       <label className="check">
         <input type="checkbox" checked={draft.autoApprove} onChange={(e) => setDraft({ ...draft, autoApprove: e.target.checked })} />
         Modo libre: no pedir permiso para escribir ni correr comandos
       </label>
-      {draft.autoApprove && <p className="warn">Con el modo libre, cualquier persona con acceso a la PC ejecuta sin preguntarte. Usalo sólo si confiás en la tarea.</p>}
+      {draft.autoApprove && <p className="warn">Con el modo libre, cualquier persona con acceso a la PC ejecuta sin preguntarte. Úsalo solo si confías en la tarea.</p>}
       <div className="row2">
         <label>
           Proveedor de imágenes
@@ -161,7 +161,7 @@ export function ProvidersEditor({ office }: { office: PublicOffice }) {
         <div>
           <h2>Modelos</h2>
           <p>
-            Conectá los proveedores que quieras. Las keys quedan sólo en tu servidor (<code>data/office.json</code>) y nunca vuelven al
+            Conecta los proveedores que quieras. Las keys quedan sólo en tu servidor (<code>data/office.json</code>) y nunca vuelven al
             navegador.
           </p>
         </div>

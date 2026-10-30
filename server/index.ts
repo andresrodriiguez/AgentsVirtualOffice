@@ -360,7 +360,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         if (patch.providerId !== undefined && !office.providers.some((p) => p.id === patch.providerId)) {
           throw new HttpError(400, `Provider "${patch.providerId}" no existe`);
         }
-        if (patch.lead === false && agent.lead) throw new HttpError(409, "Tiene que haber un líder: marcá a otra persona como líder");
+        if (patch.lead === false && agent.lead) throw new HttpError(409, "Tiene que haber un líder: marca a otra persona como líder");
         const { appearance, lead, look, ...rest } = patch;
         Object.assign(agent, rest);
         if (appearance) agent.appearance = { ...agent.appearance, ...appearance };
@@ -502,11 +502,11 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         if (!description) throw new HttpError(400, '"description" es obligatorio');
         if (description.length > 1000) throw new HttpError(400, '"description" es demasiado larga (máx 1000 caracteres)');
         const { imageProviderId, imageModel } = settings();
-        if (!imageProviderId) throw new HttpError(400, "Elegí un provider de imágenes en la configuración antes de generar un look");
+        if (!imageProviderId) throw new HttpError(400, "Elige un proveedor de imágenes en la configuración antes de generar un look");
         const provider = office.providers.find((p) => p.id === imageProviderId);
         if (!provider) throw new HttpError(400, `El provider de imágenes "${imageProviderId}" no existe`);
         if (provider.kind !== "openai") throw new HttpError(400, "El provider de imágenes tiene que ser OpenAI-compatible");
-        if (!imageModel) throw new HttpError(400, "Elegí un modelo de imágenes en la configuración antes de generar un look");
+        if (!imageModel) throw new HttpError(400, "Elige un modelo de imágenes en la configuración antes de generar un look");
         if (drawing.has(agent.id)) throw new HttpError(409, "Ya se está dibujando un look para esta persona");
         drawing.add(agent.id);
         const agentId = agent.id;

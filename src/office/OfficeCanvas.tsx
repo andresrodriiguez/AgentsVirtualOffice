@@ -139,7 +139,7 @@ export function OfficeCanvas({ engine, office, target, onPick, editLayout, onLay
           ))}
         {editLayout && (
           <div className="layout-help">
-            Arrastrá los números al centro de cada silla · doble click borra ·{" "}
+            Arrastra los números al centro de cada silla · doble clic borra ·{" "}
             <button
               onClick={() => {
                 const next = [...seats, { x: Math.round(L.width / 2), y: Math.round(L.height * 0.85) }];

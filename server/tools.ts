@@ -41,11 +41,11 @@ export const TOOL_SPECS: ToolSpec[] = [
   {
     name: "list_dir",
     description: "Lista los archivos y carpetas de un directorio. Las carpetas terminan en /.",
-    parameters: schema({ path: str("Directorio, relativo al workspace o absoluto. Usá \".\" para el workspace.") }, ["path"]),
+    parameters: schema({ path: str("Directorio, relativo al workspace o absoluto. Usa \".\" para el workspace.") }, ["path"]),
   },
   {
     name: "read_file",
-    description: `Lee un archivo de texto con los números de línea. Máximo ${READ_MAX_LINES} líneas o 100 KB por llamada; usá offset y limit para archivos largos.`,
+    description: `Lee un archivo de texto con los números de línea. Máximo ${READ_MAX_LINES} líneas o 100 KB por llamada; usa offset y limit para archivos largos.`,
     parameters: schema(
       {
         path: str("Archivo, relativo al workspace o absoluto."),
@@ -76,7 +76,7 @@ export const TOOL_SPECS: ToolSpec[] = [
   },
   {
     name: "edit_file",
-    description: "Reemplaza un fragmento exacto de un archivo. old_string tiene que aparecer exactamente una vez; incluí contexto suficiente.",
+    description: "Reemplaza un fragmento exacto de un archivo. old_string tiene que aparecer exactamente una vez; incluye contexto suficiente.",
     parameters: schema(
       {
         path: str("Archivo, relativo al workspace o absoluto."),
@@ -265,7 +265,7 @@ async function readFileTool(ctx: ToolContext, args: Record<string, unknown>): Pr
     if (bytes > READ_MAX_BYTES && out.length > 0) break;
     out.push(row);
   }
-  if (line <= lines.length) out.push(`[mostrando líneas ${start}-${line - 1} de ${lines.length}; usá offset=${line} para seguir]`);
+  if (line <= lines.length) out.push(`[mostrando líneas ${start}-${line - 1} de ${lines.length}; usa offset=${line} para seguir]`);
   return out.join("\n");
 }
 
@@ -342,11 +342,11 @@ async function editFileTool(ctx: ToolContext, args: Record<string, unknown>): Pr
   const abs = resolvePath(ctx.workspace, path);
   const text = await readTextFile(abs);
   const first = text.indexOf(oldString);
-  if (first === -1) throw new ToolError(`old_string no aparece en ${displayPath(ctx.workspace, path)}. Leé el archivo y copiá el texto exacto.`);
+  if (first === -1) throw new ToolError(`old_string no aparece en ${displayPath(ctx.workspace, path)}. Lee el archivo y copia el texto exacto.`);
   let count = 0;
   for (let i = first; i !== -1; i = text.indexOf(oldString, i + oldString.length)) count++;
   if (count > 1) {
-    throw new ToolError(`old_string aparece ${count} veces en ${displayPath(ctx.workspace, path)}. Agregá más contexto para que sea único.`);
+    throw new ToolError(`old_string aparece ${count} veces en ${displayPath(ctx.workspace, path)}. Agrega más contexto para que sea único.`);
   }
   await writeFile(abs, text.slice(0, first) + newString + text.slice(first + oldString.length), "utf8");
   return `Edité ${displayPath(ctx.workspace, path)}.`;

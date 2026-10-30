@@ -48,7 +48,7 @@ describe("claude-code provider", () => {
       { role: "user", content: "c" },
     ]);
     expect(p).toContain("Usuario: a");
-    expect(p).toContain("Vos: b");
+    expect(p).toContain("Tú: b");
     expect(p.endsWith("c")).toBe(true);
   });
 

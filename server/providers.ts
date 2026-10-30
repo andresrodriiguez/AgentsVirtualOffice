@@ -294,7 +294,7 @@ export function toClaudeCodePrompt(messages: ConvMessage[]): string {
   if (turns.length === 1) return turns[0].content;
   const past = turns
     .slice(0, -1)
-    .map((m) => `${m.role === "user" ? "Usuario" : "Vos"}: ${m.content}`)
+    .map((m) => `${m.role === "user" ? "Usuario" : "Tú"}: ${m.content}`)
     .join("\n\n");
   return `Conversación hasta ahora:\n\n${past}\n\nNuevo mensaje del usuario:\n\n${turns[turns.length - 1].content}`;
 }
@@ -412,7 +412,7 @@ const DEMO_ROLES: { match: RegExp; bullets: string[] }[] = [
   },
   {
     match: /lider|orquest/,
-    bullets: ["Te respondo yo directamente", "Si hace falta, sumo a alguien del equipo", "Avisame si querés que lo profundicemos"],
+    bullets: ["Te respondo yo directamente", "Si hace falta, sumo a alguien del equipo", "Avísame si quieres que lo profundicemos"],
   },
 ];
 
@@ -427,7 +427,7 @@ export function demoReply(system: string, messages: ChatMessage[]): string {
   const sys = normalize(system);
   const role = DEMO_ROLES.find((r) => r.match.test(sys));
   const bullets = role?.bullets ?? ["Entiendo bien qué se necesita", "Hago una primera versión", "Te la paso para que la revises"];
-  return `Listo, me pongo con eso: ${summary}\n\n${bullets.map((b) => `- ${b}`).join("\n")}\n\n(Respuesta de demo: configurá un provider con API key para respuestas reales.)`;
+  return `Listo, me pongo con eso: ${summary}\n\n${bullets.map((b) => `- ${b}`).join("\n")}\n\n(Respuesta de demo: configura un proveedor con API key para respuestas reales.)`;
 }
 
 async function* streamDemo(req: ChatRequest): AsyncGenerator<ChatChunk> {

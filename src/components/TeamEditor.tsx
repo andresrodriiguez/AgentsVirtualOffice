@@ -35,7 +35,7 @@ function LookPanel({ agent, office, progress, onError }: { agent: Agent; office:
   return (
     <div className="look-panel">
       <label>
-        Dibujar con IA: describí cómo se ve
+        Dibujar con IA: describe cómo se ve
         <textarea
           rows={2}
           value={desc}
@@ -46,7 +46,7 @@ function LookPanel({ agent, office, progress, onError }: { agent: Agent; office:
       <div className="card-actions">
         <button
           disabled={!desc.trim() || drawing || !canDraw}
-          title={canDraw ? "" : "Configurá un modelo de imágenes en Modelos → Ajustes"}
+          title={canDraw ? "" : "Configura un modelo de imágenes en Modelos → Ajustes"}
           onClick={async () => {
             try {
               await api.drawLook(agent.id, desc.trim());
@@ -228,7 +228,7 @@ export function TeamEditor({ office, looks }: { office: PublicOffice; looks: Loo
       await api.createAgent({
         name,
         role: "Nuevo rol",
-        prompt: "Describí acá qué hace esta persona en el equipo, qué sabe y cómo responde.",
+        prompt: "Describe aquí qué hace esta persona en el equipo, qué sabe y cómo responde.",
         providerId: lead?.providerId ?? office.providers[0]?.id,
         model: lead?.model ?? "",
         appearance: randomAppearance(`${name}-${Date.now()}`),
@@ -248,7 +248,7 @@ export function TeamEditor({ office, looks }: { office: PublicOffice; looks: Loo
         </div>
         <button onClick={() => void hire()}>+ Sumar persona</button>
       </div>
-      {free === -1 && <div className="warn">No quedan escritorios libres: agregá uno en la oficina con “✥ Escritorios”.</div>}
+      {free === -1 && <div className="warn">No quedan escritorios libres: agrega uno en la oficina con “✥ Escritorios”.</div>}
       {error && <div className="error">{error}</div>}
       <div className="cards">
         {office.agents.map((a) => (

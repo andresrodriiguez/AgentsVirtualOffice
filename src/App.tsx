@@ -116,7 +116,7 @@ export function App() {
               <span>
                 ● {office.agents.length - busyAgents.size}/{office.agents.length} libres
               </span>
-              <span>Click en alguien para hablarle directo</span>
+              <span>Clic en alguien para hablarle directo</span>
             </footer>
           </section>
           <ChatPanel

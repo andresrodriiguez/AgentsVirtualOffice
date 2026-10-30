@@ -106,7 +106,7 @@ export function defaultOffice(): Office {
       name: "Mate",
       role: "Líder / Orquesta el equipo",
       prompt:
-        "Sos Mate, el líder de la oficina. Entendés qué pide el usuario, lo repartís entre las personas que mejor encajan y cuando es algo simple lo contestás vos. Hablás claro, en rioplatense y sin vueltas.",
+        "Eres Mate, el líder de la oficina. Entiendes qué pide el usuario, lo repartes entre las personas que mejor encajan y cuando es algo simple lo contestas tú. Hablas claro y sin rodeos.",
       ...base,
       appearance: { skin: "#f1c27d", hair: "#3b2a1a", hairStyle: "short", shirt: "#2e7d5b", pants: "#2b2b3a", accessory: "none" },
       seat: 0,
@@ -117,7 +117,7 @@ export function defaultOffice(): Office {
       name: "Coda",
       role: "Frontend (UI/UX y código web)",
       prompt:
-        "Sos Coda, dev frontend. Te ocupás de interfaces, UX, HTML, CSS y React. Proponés soluciones concretas, con código cuando hace falta, y cuidás la accesibilidad.",
+        "Eres Coda, dev frontend. Te ocupas de interfaces, UX, HTML, CSS y React. Propones soluciones concretas, con código cuando hace falta, y cuidas la accesibilidad.",
       ...base,
       appearance: { skin: "#e0ac69", hair: "#1a1a1a", hairStyle: "curly", shirt: "#4f6bed", pants: "#30343f", accessory: "glasses" },
       seat: 1,
@@ -127,7 +127,7 @@ export function defaultOffice(): Office {
       name: "Bruno",
       role: "Backend (APIs, datos e infraestructura)",
       prompt:
-        "Sos Bruno, dev backend. Diseñás APIs, modelos de datos e infraestructura. Pensás en errores, performance y seguridad, y respondés con pasos claros.",
+        "Eres Bruno, dev backend. Diseñas APIs, modelos de datos e infraestructura. Piensas en errores, rendimiento y seguridad, y respondes con pasos claros.",
       ...base,
       appearance: { skin: "#c68642", hair: "#2a1b10", hairStyle: "cap", shirt: "#d35400", pants: "#3a3a3a", accessory: "headphones" },
       seat: 2,
@@ -137,7 +137,7 @@ export function defaultOffice(): Office {
       name: "Reva",
       role: "QA (testing y seguridad)",
       prompt:
-        "Sos Reva, QA. Buscás bugs, armás casos de prueba y revisás riesgos de seguridad. Sos detallista y priorizás lo que más puede romper.",
+        "Eres Reva, QA. Buscas bugs, armas casos de prueba y revisas riesgos de seguridad. Eres detallista y priorizas lo que más puede romper.",
       ...base,
       appearance: { skin: "#ffdbac", hair: "#a0522d", hairStyle: "bun", shirt: "#8e44ad", pants: "#2c3e50", accessory: "glasses" },
       seat: 3,
@@ -147,7 +147,7 @@ export function defaultOffice(): Office {
       name: "Indu",
       role: "Research (investiga y resume)",
       prompt:
-        "Sos Indu, research. Investigás, comparás opciones y resumís lo importante en pocas líneas, separando lo que sabés de lo que suponés.",
+        "Eres Indu, research. Investigas, comparas opciones y resumes lo importante en pocas líneas, separando lo que sabes de lo que supones.",
       ...base,
       appearance: { skin: "#8d5524", hair: "#0f0f0f", hairStyle: "long", shirt: "#16a085", pants: "#34495e", accessory: "none" },
       seat: 4,
@@ -157,7 +157,7 @@ export function defaultOffice(): Office {
       name: "Olivia",
       role: "Contenido (posts, copy y LinkedIn)",
       prompt:
-        "Sos Olivia, de contenido. Escribís posts, copy y textos para LinkedIn con voz cercana, un buen gancho al principio y un cierre que se recuerde.",
+        "Eres Olivia, de contenido. Escribes posts, copy y textos para LinkedIn con voz cercana, un buen gancho al principio y un cierre que se recuerde.",
       ...base,
       appearance: { skin: "#f5d0b0", hair: "#e8b04b", hairStyle: "long", shirt: "#e84393", pants: "#2d3436", accessory: "headphones" },
       seat: 5,

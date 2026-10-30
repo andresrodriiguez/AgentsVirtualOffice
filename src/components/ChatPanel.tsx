@@ -45,14 +45,14 @@ export function ChatPanel({ office, runs, target, setTarget, onSend, busy }: Pro
       <div className="log" ref={log}>
         {!runs.length && (
           <div className="empty">
-            Escribile al equipo abajo. {lead ? `${lead.name} lee el pedido` : "El líder lee el pedido"} y se lo pasa a quien
-            corresponda. Hacé click en alguien de la oficina para hablarle directo.
+            Escríbele al equipo abajo. {lead ? `${lead.name} lee el pedido` : "El líder lee el pedido"} y se lo pasa a quien
+            corresponda. Haz clic en alguien de la oficina para hablarle directo.
           </div>
         )}
         {runs.map((r) => (
           <div key={r.id} className="run">
             <div className="msg user">
-              <span className="who">Vos {r.target ? `→ ${byId.get(r.target)?.name ?? "?"}` : "→ equipo"}</span>
+              <span className="who">Tú {r.target ? `→ ${byId.get(r.target)?.name ?? "?"}` : "→ equipo"}</span>
               <p>{r.text}</p>
             </div>
             {r.routing && !r.note && lead && (
@@ -104,7 +104,7 @@ export function ChatPanel({ office, runs, target, setTarget, onSend, busy }: Pro
         <div className="input-row">
           <textarea
             value={text}
-            placeholder={target ? `Mensaje directo a ${byId.get(target)?.name}…` : "¿Qué necesitás? El líder lo reparte…"}
+            placeholder={target ? `Mensaje directo a ${byId.get(target)?.name}…` : "¿Qué necesitas? El líder lo reparte…"}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
