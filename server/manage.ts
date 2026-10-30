@@ -168,8 +168,7 @@ export class ThreadBlockFilter {
 export function requestSection(): string {
   return `
 
-## Pedir accesos o ayuda a Mate
-Si para tu trabajo necesitas un acceso, permiso, herramienta o que alguien configure algo que tú no puedes (por ejemplo leer un correo, usar la PC, una carpeta, otra cuenta), no lo intentes por tu cuenta: escribe al final de tu respuesta un bloque <solicitud>qué necesitas, para qué y por qué</solicitud>. Mate se lo plantea a Andrés y, si Andrés lo aprueba, te lo configura. Dile a Andrés en una línea que lo pediste.`;
+Si necesitas un acceso o permiso que no tienes, no lo intentes: escribe al final <solicitud>qué y para qué</solicitud> y Mate se lo plantea a Andrés.`;
 }
 
 export const TEAM_MEMORY_ID = "equipo";
@@ -177,50 +176,26 @@ const TEAM_MEMORY_LIMIT = 3000;
 
 export function teamSection(memory: string, canDelegate: boolean, peers: string): string {
   const shown = memory.length > TEAM_MEMORY_LIMIT ? `[…]\n${memory.slice(-TEAM_MEMORY_LIMIT)}` : memory;
-  return `
-
-## Memoria del equipo
-Hay una libreta común que leen todos los agentes: datos de las empresas de Andrés, clientes, reglas y acuerdos que todos deben conocer. Para añadir algo útil para todos (no para ti sola/o), escribe un bloque <memoria_equipo>…</memoria_equipo> con notas breves; nunca contraseñas ni claves. Lo que sea sólo tuyo va en tu memoria personal.
-<memoria_equipo_actual>
-${shown.trim() || "(vacía)"}
-</memoria_equipo_actual>${
-    canDelegate
-      ? `
-
-## Pasarle trabajo a un compañero
-Si una parte del trabajo le corresponde claramente a otro, puedes pasársela directo sin esperar a Andrés: escribe <para>nombre: qué debe hacer, con el contexto necesario</para>. El compañero lo hace y el resultado le llega a Andrés en el chat. Compañeros: ${peers}. Úsalo sólo si de verdad es de su área; no encadenes pedidos.`
-      : ""
-  }`;
+  const notes = shown.trim() ? `\nNotas del equipo:\n${shown.trim()}` : "";
+  const hand = canDelegate ? ` Para pasarle una tarea a un compañero: <para>nombre: tarea</para> (${peers}); sin encadenar.` : "";
+  return `\n\nLibreta común: para algo útil a todos escribe <memoria_equipo>nota breve</memoria_equipo>, nunca claves.${hand}${notes}`;
 }
 
 export const THREAD_AFTER_CHARS = 12000;
 
 export function threadSection(historyChars: number): string {
-  const long = historyChars > THREAD_AFTER_CHARS;
-  return `
-
-## Hilos largos
-Cada mensaje te reenvía el historial de esta conversación, y eso gasta tokens. ${
-    long
-      ? "Esta conversación ya es larga: al terminar tu respuesta de ahora, ciérrala y abre un hilo nuevo."
-      : "Si la conversación se alarga o el tema cambia por completo, ciérrala y abre un hilo nuevo."
-  } Para hacerlo, escribe al final de tu respuesta un bloque <nuevo_hilo>…</nuevo_hilo> con un resumen para ti mismo: qué se decidió, qué quedó pendiente, datos y preferencias de Andrés y el contexto necesario para seguir. El resumen pasa a tu memoria, el historial se vacía y la siguiente conversación sigue sin perder nada. Avisa a Andrés en una línea ("Abrí un hilo nuevo; guardé el contexto"). No lo hagas a mitad de una tarea sin terminar.`;
+  // Sólo cuando la conversación ya es larga; antes no hace falta ni mencionarlo.
+  if (historyChars <= THREAD_AFTER_CHARS) return "";
+  return `\n\nEsta conversación ya es larga y reenviarla cuesta tokens: al terminar tu respuesta ciérrala con <nuevo_hilo>resumen breve: decisiones, pendientes y datos de Andrés</nuevo_hilo> (pasa a tu memoria y el historial se vacía). No lo expliques ni lo menciones, y no lo hagas a mitad de una tarea.`;
 }
 
 export function manageSection(agents: Agent[]): string {
-  const roster = agents.map((a) => `- ${a.name} (id: ${a.id}) · ${a.role} · ${a.providerId} · ${a.model || "?"}`).join("\n");
+  const roster = agents.map((a) => `${a.name} (${a.id}, ${a.providerId}, ${a.model || "?"})`).join("; ");
   return `
 
-## Administrar la oficina
-Eres el administrador de la oficina: Andrés te da la autoridad para crear y configurar a las demás personas del equipo. Para hacerlo escribe en tu respuesta un bloque <oficina>{json}</oficina> (el usuario no lo ve; se ejecuta y te aviso el resultado). Puedes poner varios bloques.
-- Crear: <oficina>{"accion":"crear","name":"Nombre","role":"Rol corto","prompt":"Instrucciones completas…","model":"claude-sonnet-5-5","effort":"medium"}</oficina>
-- Editar: <oficina>{"accion":"editar","quien":"id o nombre","role":"…","prompt":"…","model":"…","effort":"low|medium|high"}</oficina>
-- Borrar: <oficina>{"accion":"borrar","quien":"id o nombre"}</oficina>
-- Abrir hilo nuevo con alguien cuya conversación se alargó (su historial se vacía y el resumen pasa a su memoria): <oficina>{"accion":"nuevo_hilo","quien":"id o nombre","resumen":"…"}</oficina>
-Cambiar de cuenta/proveedor (providerId), dar acceso a la PC (tools), al correo (mail), carpeta de trabajo (workspace), liderazgo o administración, y borrar a alguien: Andrés lo confirma en pantalla antes; pídelo igual sin dudar. Enviar correos o tocar archivos no es parte de esto y sigue sujeto a los permisos de cada herramienta.
-Si un compañero te manda una solicitud de acceso, explícale a Andrés en pocas líneas quién la pide, qué necesita y qué riesgo tiene, y recomienda aprobarla o no. Si Andrés la aprueba, ejecuta el cambio con una acción <oficina> (editar con mail, imap, tools, providerId, etc.); Andrés te la confirma en pantalla. Lo que no puedas conceder con tus acciones (por ejemplo conectar una cuenta nueva), dile a Andrés qué paso debe hacer él.
-Controlar la PC de Andrés (Windows, cmd.exe): <oficina>{"accion":"comando","comando":"start \"\" spotify:"}</oficina>. Cada comando le aparece a Andrés para que lo apruebe y luego ves el resultado en tu mensaje. Sin entrada interactiva y con límite de 120 s; una acción por comando. Ejemplos: abrir apps (start "" nombre, start "" https://…, start "" spotify:), ver procesos (tasklist), cerrar uno (taskkill /im nombre.exe), espacio en disco (wmic logicaldisk get caption,freespace,size), limpiar temporales (del /q /f /s "%TEMP%\*"). Antes de borrar algo, muestra primero qué vas a borrar (dir) y qué espacio liberarás. Nunca formatees, toques el registro ni borres fuera de temporales/papelera sin que Andrés lo pida con esas palabras.
-Proveedores disponibles: claude-code (cuenta por defecto), claude-misterloans, claude-cala. Al crear una persona sin proveedor usa el tuyo. Explica en una línea qué vas a cambiar y por qué.
-Equipo actual:
-${roster}`;
+Administras la oficina. Acciones como bloque <oficina>{json}</oficina> (invisible para Andrés; puedes poner varios):
+crear {"accion":"crear","name","role","prompt","model","effort"} · editar {"accion":"editar","quien","role|prompt|model|effort|providerId|tools|mail|imap|calendar|workspace"} · borrar {"accion":"borrar","quien"} · hilo nuevo {"accion":"nuevo_hilo","quien","resumen"}.
+Borrar y cambiar cuentas/accesos/PC/correo los confirma Andrés en pantalla: pídelos sin dudar. Si un compañero te manda una solicitud de acceso, dile a Andrés en pocas líneas quién, qué y el riesgo, y concédela con "editar" si acepta.
+PC de Andrés (Windows, cmd.exe): {"accion":"comando","comando":"…"}, uno por acción; Andrés aprueba cada uno, sin entrada interactiva, 120 s. Ejemplos: start "" spotify:, tasklist, taskkill /im x.exe, del /q /f /s "%TEMP%\\*". Antes de borrar, muestra qué (dir). Nunca formatees, toques el registro ni borres fuera de temporales sin que Andrés lo pida así. No pegues salidas ni código en el chat: se ven en el panel; resume.
+Proveedores: claude-code, claude-misterloans, claude-cala. Equipo: ${roster}`;
 }

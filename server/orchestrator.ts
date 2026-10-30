@@ -547,8 +547,9 @@ export async function runMessage(
       routing = demoRoute(text, office.agents);
     } else {
       try {
-        const raw = await collect(ctx, lead, routingSystem(lead, office.agents, (await ctx.memory?.read(lead.id)) ?? ""), [
-          ...compactHistory(history.get(lead.id)),
+        // Para repartir basta lo último de la conversación y un trozo de la memoria: así la llamada de ruteo sale barata.
+        const raw = await collect(ctx, lead, routingSystem(lead, office.agents, ((await ctx.memory?.read(lead.id)) ?? "").slice(-1200)), [
+          ...history.get(lead.id).slice(-2).map((m) => (m.content.length > 300 ? { ...m, content: `${m.content.slice(0, 300)}…` } : m)),
           { role: "user", content: text + (extras?.names ?? "") },
         ]);
         routing = parseRouting(raw, office.agents);
