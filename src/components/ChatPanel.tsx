@@ -377,6 +377,8 @@ const STATE_ICON = { running: "⏳", asking: "🔐", ok: "✓", error: "✕", de
 
 function StepView({ step }: { step: Step }) {
   if (step.kind === "text") return step.text.trim() ? <Markdown text={step.text} /> : null;
+  // El código, los comandos y sus resultados viven en el panel "Actividad en vivo"; aquí sólo lo que necesita tu atención.
+  if (step.state === "ok" || step.state === "running") return null;
   return (
     <details className={`tool ${step.state}`}>
       <summary>

@@ -32,6 +32,7 @@ export function App() {
         setTarget((t) => (t && ev.office.agents.some((a) => a.id === t) ? t : null));
       }
       if (ev.type === "tool_call" && ev.name !== "gestionar_oficina") setActivity((a) => [...a.slice(-39), { ...ev, at: Date.now() }]);
+      if (ev.type === "tool_result") setActivity((a) => a.map((x) => (x.callId === ev.callId ? { ...x, output: ev.output } : x)));
       if (ev.type === "permission_request") setPending((p) => [...p.filter((x) => x.callId !== ev.callId), ev]);
       if (ev.type === "permission_resolved") setPending((p) => p.filter((x) => x.callId !== ev.callId));
       if (ev.type === "look_progress") setLooks((l) => ({ ...l, [ev.agentId]: { status: ev.status, error: ev.error } }));
@@ -123,7 +124,7 @@ export function App() {
               editLayout={editLayout}
               onLayout={(l) => void api.saveLayout(l)}
             />
-            {!target && <ActivityPanel office={office} items={activity} />}
+            <ActivityPanel office={office} items={activity} />
             <footer className="stage-foot">
               <span>
                 ● {office.agents.length - busyAgents.size}/{office.agents.length} libres

@@ -1279,3 +1279,7 @@ details summary {
   border-color: var(--accent);
   animation: blink 1s infinite;
 }
+
+.main.focus .activity-log {
+  max-height: 52vh;
+}

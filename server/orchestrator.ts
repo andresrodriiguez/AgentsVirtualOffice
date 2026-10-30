@@ -287,8 +287,14 @@ function activityOf(name: string, input: Record<string, unknown>): { name: ToolN
   return { name: mapped, args, summary };
 }
 
-async function runManageActions(ctx: RunContext, agent: Agent, actions: ManageAction[], settings: Settings): Promise<string[]> {
+async function runManageActions(
+  ctx: RunContext,
+  agent: Agent,
+  actions: ManageAction[],
+  settings: Settings,
+): Promise<{ lines: string[]; outputs: string[] }> {
   const lines: string[] = [];
+  const outputs: string[] = [];
   for (const action of actions) {
     if (action.accion === "comando") {
       const command = typeof action.comando === "string" ? action.comando.trim() : "";
@@ -300,7 +306,8 @@ async function runManageActions(ctx: RunContext, agent: Agent, actions: ManageAc
         { runId: ctx.runId, agentId: agent.id, settings, permissions: ctx.permissions, emit: ctx.emit, commandTimeoutMs: ctx.commandTimeoutMs },
         { name: "run_command", arguments: JSON.stringify({ command }) },
       );
-      lines.push(`${result.ok ? "✓" : "✕"} \`${command.slice(0, 120)}\`\n${result.output.trim().slice(0, 1500)}`);
+      // La salida va al panel de actividad (y a Mate para que la resuma), no al chat.
+      outputs.push(`$ ${command.slice(0, 300)}\n${result.ok ? "" : "[falló] "}${result.output.trim().slice(0, 2500)}`);
       continue;
     }
     const label = describeAction(action, ctx.office.agents);
@@ -329,7 +336,7 @@ async function runManageActions(ctx: RunContext, agent: Agent, actions: ManageAc
       lines.push(`✕ ${label}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  return lines;
+  return { lines, outputs };
 }
 
 async function runAgent(
@@ -442,8 +449,35 @@ async function runAgent(
     }
     if (boss && ctx.manage) {
       const done = await runManageActions(ctx, agent, boss.actions, settings);
-      const lines = [...done, ...boss.invalid.map((e) => `✕ No pude leer una acción (${e})`)];
+      const lines = [...done.lines, ...boss.invalid.map((e) => `✕ No pude leer una acción (${e})`)];
       if (lines.length) say(`${text && !text.endsWith("\n") ? "\n\n" : ""}${lines.join("\n")}`);
+      if (done.outputs.length) {
+        // Segunda pasada: Mate lee los resultados y le cuenta a Andrés lo importante, sin pegar la salida cruda.
+        const follow: ConvMessage[] = [
+          ...conv,
+          { role: "assistant", content: text.trim() || "(ejecuté los comandos)" },
+          {
+            role: "user",
+            content: `Resultados de los comandos que pediste (Andrés los ve completos en el panel de código; no los pegues en el chat):\n\n${done.outputs.join("\n\n")}\n\nResume en pocas líneas lo que importa para Andrés y, si corresponde, propón el siguiente paso. No escribas bloques <oficina> ni código.`,
+          },
+        ];
+        const hide = new ManageBlockFilter();
+        let first = true;
+        for await (const chunk of streamChat({ provider, model: agent.model, effort: agent.effort, system, messages: follow })) {
+          if (chunk.text) {
+            const visible = hide.push(chunk.text);
+            if (visible) {
+              say(`${first ? "\n\n" : ""}${visible}`);
+              first = false;
+            }
+          }
+          if (chunk.usage) {
+            output += chunk.usage.output;
+            sawUsage = true;
+            recordUsage(ctx, agent, provider, "respuesta", chunk.usage);
+          }
+        }
+      }
     }
     text = text.trim();
     if (ctx.memory && filter.ops.length) await ctx.memory.apply(agent.id, filter.ops).catch((err) => console.error("[memoria]", err));

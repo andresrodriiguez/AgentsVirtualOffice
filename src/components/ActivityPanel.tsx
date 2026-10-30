@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { OfficeEvent, PublicOffice } from "../../shared/types.ts";
 
-export type Activity = Extract<OfficeEvent, { type: "tool_call" }> & { at: number };
+export type Activity = Extract<OfficeEvent, { type: "tool_call" }> & { at: number; output?: string };
 
 const ICON: Record<Activity["name"], string> = {
   list_dir: "📂",
@@ -44,6 +44,18 @@ function Body({ a }: { a: Activity }) {
             + {l}
           </span>
         ))}
+      </pre>
+    );
+  }
+  if (a.name === "run_command") {
+    return (
+      <pre className="act-code">
+        <span>$ {String(a.args.command ?? "").slice(0, 600)}</span>
+        {a.output
+          ? lines(a.output, 14).map((l, i) => (
+              <span key={i}>{l}</span>
+            ))
+          : null}
       </pre>
     );
   }
