@@ -183,9 +183,10 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
   try {
     const provider = office.providers.find((p) => p.id === agent.providerId);
     if (!provider) throw new Error(`Provider "${agent.providerId}" no existe`);
+    const settings: Settings = { ...ctx.settings, workspace: agent.workspace?.trim() || ctx.settings.workspace };
     const withTools = usesTools(agent, provider);
-    const claudeCode = claudeCodeOptions(agent, provider, ctx.settings);
-    const system = withTools || claudeCode ? toolsSystem(agent, ctx.settings) : agentSystem(agent);
+    const claudeCode = claudeCodeOptions(agent, provider, settings);
+    const system = withTools || claudeCode ? toolsSystem(agent, settings) : agentSystem(agent);
     const conv: ConvMessage[] = [...history.get(agent.id), { role: "user", content: message }];
     let text = "";
     let output = 0;
@@ -221,7 +222,7 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
           {
             runId,
             agentId: agent.id,
-            settings: ctx.settings,
+            settings,
             permissions: ctx.permissions,
             emit,
             commandTimeoutMs: ctx.commandTimeoutMs,

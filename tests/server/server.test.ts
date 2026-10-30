@@ -52,6 +52,8 @@ describe("server", () => {
     expect(updated.status).toBe(200);
     expect(updated.json.appearance.shirt).toBe("#000000");
     expect(updated.json.appearance.skin).toBeTruthy();
+    const withDir = await api("PUT", `/api/agents/${created.json.id}`, { workspace: "/tmp/proyecto" });
+    expect(withDir.json.workspace).toBe("/tmp/proyecto");
     const { json } = await api("GET", "/api/office");
     expect((json as PublicOffice).agents.filter((a) => a.lead).map((a) => a.id)).toEqual([created.json.id]);
     const back = await api("PUT", "/api/agents/mate", { lead: true });

@@ -157,6 +157,16 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
           <input type="checkbox" checked={!!draft.tools} onChange={(e) => set("tools", e.target.checked)} />
           🖥 Puede usar la PC (leer, escribir y correr comandos; te pide permiso)
         </label>
+        {draft.tools && (
+          <label>
+            Carpeta de trabajo (opcional)
+            <input
+              value={draft.workspace ?? ""}
+              placeholder="vacía = la carpeta de Modelos → Ajustes · ej. C:\Users\tu-usuario\proyecto"
+              onChange={(e) => set("workspace", e.target.value)}
+            />
+          </label>
+        )}
         <details open={!!agent.look || progress?.status === "drawing"}>
           <summary>Apariencia {agent.look ? "· dibujada con IA" : "· pixel simple"}</summary>
           <LookPanel agent={agent} office={office} progress={progress} onError={onError} />
@@ -165,7 +175,7 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
             <Swatches colors={PALETTES.SKINS} value={draft.appearance.skin} onPick={(c) => look("skin", c)} />
             <span>Pelo</span>
             <Swatches colors={PALETTES.HAIRS} value={draft.appearance.hair} onPick={(c) => look("hair", c)} />
-            <span>Remera</span>
+            <span>Camiseta</span>
             <Swatches colors={PALETTES.SHIRTS} value={draft.appearance.shirt} onPick={(c) => look("shirt", c)} />
             <span>Pantalón</span>
             <Swatches colors={PALETTES.PANTS} value={draft.appearance.pants} onPick={(c) => look("pants", c)} />

@@ -35,6 +35,8 @@ export interface Agent {
   seat: number;
   lead?: boolean;
   tools?: boolean;
+  /** Carpeta de trabajo propia; si falta, se usa la de Ajustes. */
+  workspace?: string;
   look?: Look;
 }
 
