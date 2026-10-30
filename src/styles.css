@@ -1,14 +1,17 @@
 :root {
-  --bg: #0b0a14;
-  --panel: #13111f;
-  --panel-2: #1a1729;
-  --line: #2a2540;
-  --text: #e9e6f5;
-  --muted: #8c86a6;
-  --accent: #9b7bf2;
+  --bg: #0a1620;
+  --panel: #0f1f2b;
+  --panel-2: #152a38;
+  --line: #23404f;
+  --text: #eef6f3;
+  --muted: #8aa9b0;
+  --accent: #ff7a5c;
   --green: #7be08a;
   --red: #f0605d;
-  --amber: #f2c14e;
+  --amber: #f4c35a;
+  --teal: #2ec4b6;
+  --gold: #f4c35a;
+  --script: "Pacifico", cursive;
   --mono: "JetBrains Mono", ui-monospace, monospace;
   --pixel: "Silkscreen", monospace;
   color-scheme: dark;
@@ -26,7 +29,7 @@ body,
 }
 
 body {
-  background: radial-gradient(1200px 600px at 20% -10%, #1d1535 0%, var(--bg) 60%);
+  background: radial-gradient(1200px 600px at 20% -10%, #13394a 0%, var(--bg) 60%);
   color: var(--text);
   font: 14px/1.45 var(--mono);
 }
@@ -40,7 +43,7 @@ button {
   padding: 7px 14px;
   cursor: pointer;
   font-weight: 600;
-  color: #120c22;
+  color: #2a0f08;
 }
 
 button:disabled {
@@ -70,7 +73,7 @@ textarea,
 select {
   font: inherit;
   color: var(--text);
-  background: #0e0c18;
+  background: #0b1923;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 7px 10px;
@@ -89,7 +92,7 @@ textarea {
 }
 
 code {
-  background: #0e0c18;
+  background: #0b1923;
   padding: 1px 5px;
   border-radius: 4px;
 }
@@ -107,7 +110,7 @@ code {
 }
 
 .boot-box b {
-  font: 700 28px var(--pixel);
+  font: 400 34px var(--script);
   color: var(--accent);
 }
 
@@ -123,7 +126,7 @@ code {
   gap: 20px;
   padding: 12px 20px;
   border-bottom: 1px solid var(--line);
-  background: rgba(11, 10, 20, 0.8);
+  background: rgba(10, 22, 32, 0.8);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -139,8 +142,9 @@ code {
 
 .brand b {
   display: block;
-  font: 700 18px var(--pixel);
-  letter-spacing: 0.5px;
+  font: 400 21px var(--script);
+  letter-spacing: 0.3px;
+  color: var(--gold);
 }
 
 .brand small {
@@ -154,10 +158,10 @@ code {
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: linear-gradient(135deg, #6c31a6, #9b7bf2);
+  background: linear-gradient(135deg, #ff7a5c, #f4c35a);
   font-size: 20px;
   color: #fff;
-  box-shadow: 0 0 18px rgba(155, 123, 242, 0.45);
+  box-shadow: 0 0 18px rgba(255, 122, 92, 0.45);
 }
 
 .live {
@@ -188,7 +192,7 @@ nav button {
 nav button.on {
   color: #fff;
   border-color: var(--accent);
-  background: rgba(155, 123, 242, 0.14);
+  background: rgba(255, 122, 92, 0.14);
 }
 
 nav em {
@@ -317,7 +321,7 @@ nav em {
 }
 
 .plate {
-  background: rgba(13, 11, 24, 0.88);
+  background: rgba(10, 24, 34, 0.88);
   border: 1.5px solid var(--c);
   border-radius: 6px;
   padding: 2px 8px 3px;
@@ -335,7 +339,7 @@ nav em {
 
 .plate span {
   font-size: clamp(8px, 0.65vw, 10px);
-  color: #cfc9e6;
+  color: #c6dcdc;
 }
 
 .tag.picked .plate {
@@ -345,7 +349,7 @@ nav em {
 
 .tag.picked .plate b,
 .tag.picked .plate span {
-  color: #120c22;
+  color: #2a0f08;
 }
 
 .tag.busy .plate {
@@ -354,7 +358,7 @@ nav em {
 
 .bubble {
   background: #fffaf0;
-  color: #241a2e;
+  color: #16303d;
   font: 600 clamp(9px, 0.8vw, 12px) "Pixelify Sans", var(--mono);
   padding: 4px 9px;
   border-radius: 8px;
@@ -362,7 +366,7 @@ nav em {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border: 2px solid #241a2e;
+  border: 2px solid #16303d;
   position: relative;
   animation: pop 0.18s ease-out;
 }
@@ -374,11 +378,11 @@ nav em {
   left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent;
-  border-top-color: #241a2e;
+  border-top-color: #16303d;
 }
 
 .bubble.think {
-  background: #efe9ff;
+  background: #effaf7;
 }
 
 .bubble.typing {
@@ -397,7 +401,7 @@ nav em {
   height: 34px;
   border-radius: 50%;
   background: var(--accent);
-  color: #120c22;
+  color: #2a0f08;
   display: grid;
   place-items: center;
   font: 700 14px var(--pixel);
@@ -411,7 +415,7 @@ nav em {
   left: 50%;
   bottom: 12px;
   transform: translateX(-50%);
-  background: rgba(13, 11, 24, 0.9);
+  background: rgba(10, 24, 34, 0.9);
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 6px 12px;
@@ -461,7 +465,7 @@ nav em {
 }
 
 .msg.user {
-  background: rgba(155, 123, 242, 0.12);
+  background: rgba(255, 122, 92, 0.12);
   --c: var(--accent);
 }
 
@@ -634,7 +638,7 @@ nav em {
 
 .sprite-preview {
   image-rendering: pixelated;
-  background: radial-gradient(circle at 50% 70%, #3a2a24, #1a1420);
+  background: radial-gradient(circle at 50% 70%, #3a2a24, #10232e);
   border-radius: 10px;
   padding: 4px;
 }
@@ -840,7 +844,7 @@ details summary {
 
 .tool {
   margin-top: 6px;
-  background: #0e0c18;
+  background: #0b1923;
   border: 1px solid var(--line);
   border-radius: 8px;
   font-size: 12px;
@@ -894,7 +898,7 @@ details summary {
 .modal-back {
   position: fixed;
   inset: 0;
-  background: rgba(5, 4, 10, 0.72);
+  background: rgba(4, 12, 18, 0.72);
   display: grid;
   place-items: center;
   z-index: 50;
@@ -935,7 +939,7 @@ details summary {
 
 .modal-detail {
   margin: 0;
-  background: #0a0812;
+  background: #08131b;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
@@ -984,7 +988,7 @@ details summary {
 
 .md pre {
   margin: 6px 0 0;
-  background: #0a0812;
+  background: #08131b;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px;
@@ -1061,7 +1065,7 @@ details summary {
   place-items: center;
   font: 700 16px var(--pixel);
   font-style: normal;
-  color: #0b0a14;
+  color: #0a1620;
   background: var(--c);
 }
 
@@ -1082,7 +1086,7 @@ details summary {
   font-size: 12px;
   border-radius: 8px;
   background: var(--accent);
-  color: #0b0a14;
+  color: #0a1620;
   pointer-events: none;
 }
 
@@ -1169,7 +1173,7 @@ details summary {
 /* Panel de actividad en vivo bajo la oficina */
 .activity {
   border-top: 1px solid var(--line);
-  background: #0e0c18;
+  background: #0b1923;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1223,7 +1227,7 @@ details summary {
   padding: 6px 8px;
   max-height: 110px;
   overflow: auto;
-  background: #08070f;
+  background: #061017;
   border-radius: 6px;
   font: 11px/1.4 var(--mono);
 }
@@ -1282,4 +1286,129 @@ details summary {
 
 .main.focus .activity-log {
   max-height: 52vh;
+}
+
+/* ---------- La Azotea: cielo, clima y guacamaya ---------- */
+.weather-chip {
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(46, 196, 182, 0.12);
+  border: 1px solid rgba(46, 196, 182, 0.35);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.sky {
+  position: relative;
+  height: 74px;
+  overflow: hidden;
+  transition: background 2s;
+  background: linear-gradient(#4fb3d9, #a8e3ef);
+}
+.sky-dawn { background: linear-gradient(#3b3f7a, #ff9a76 70%, #ffd48a); }
+.sky-sunset { background: linear-gradient(#2c3e7a, #ff6f61 65%, #ffc15e); }
+.sky-night { background: linear-gradient(#081428, #1a2c52); }
+.sky.wx-rain, .sky.wx-storm { filter: saturate(0.55) brightness(0.8); }
+.sky.wx-fog { filter: saturate(0.4) brightness(1.05); }
+
+.sun, .moon {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: left 30s linear, top 30s linear;
+}
+.sun { background: #fff3c4; box-shadow: 0 0 24px 8px rgba(255, 214, 120, 0.7); }
+.sky-sunset .sun, .sky-dawn .sun { background: #ffd08a; box-shadow: 0 0 30px 12px rgba(255, 120, 80, 0.6); }
+.moon { width: 18px; height: 18px; background: #f2f0e6; box-shadow: 0 0 14px 4px rgba(220, 230, 255, 0.35); }
+
+.stars {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(1px 1px at 10% 20%, #fff, transparent), radial-gradient(1px 1px at 30% 45%, #fff, transparent),
+    radial-gradient(1px 1px at 55% 15%, #fff, transparent), radial-gradient(1px 1px at 72% 38%, #fff, transparent),
+    radial-gradient(1px 1px at 88% 12%, #fff, transparent), radial-gradient(1px 1px at 45% 30%, #cfe, transparent);
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+@keyframes twinkle { to { opacity: 0.45; } }
+
+.cloud {
+  position: absolute;
+  height: 14px;
+  width: 70px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 18px -7px 0 2px rgba(255, 255, 255, 0.75);
+  animation: drift 70s linear infinite;
+}
+.sky-night .cloud { background: rgba(160, 175, 210, 0.35); box-shadow: 18px -7px 0 2px rgba(160, 175, 210, 0.35); }
+.wx-rain .cloud, .wx-storm .cloud { background: rgba(120, 130, 150, 0.85); box-shadow: 18px -7px 0 2px rgba(120, 130, 150, 0.85); }
+.cloud.c1 { top: 14px; animation-delay: -10s; }
+.cloud.c2 { top: 30px; width: 90px; animation-duration: 95s; animation-delay: -50s; }
+.cloud.c3 { top: 8px; width: 50px; animation-duration: 60s; animation-delay: -35s; }
+@keyframes drift { from { left: -15%; } to { left: 110%; } }
+
+.rain {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(105deg, transparent 0 6px, rgba(200, 225, 255, 0.45) 6px 7px, transparent 7px 14px);
+  background-size: 100% 28px;
+  animation: rain 0.5s linear infinite;
+}
+@keyframes rain { to { background-position: -8px 28px; } }
+.flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: flash 7s infinite; }
+@keyframes flash { 0%, 92%, 96%, 100% { opacity: 0; } 94%, 98% { opacity: 0.55; } }
+
+.skyline { position: absolute; left: 0; right: 0; bottom: 8px; width: 100%; height: 34px; fill: #0f2a3a; }
+.sky-day .skyline { fill: #2b5a72; }
+.sky-night .skyline { fill: #050d18; filter: drop-shadow(0 0 1px #f4c35a); }
+.sea { position: absolute; left: 0; right: 0; bottom: 0; height: 9px; background: linear-gradient(#2ec4b6, #138a80); }
+.sky-night .sea { background: linear-gradient(#123a4a, #081b24); }
+
+/* Luz sobre la oficina según la hora */
+.tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  transition: background 2s;
+}
+.tint-dawn { background: rgba(255, 170, 140, 0.16); }
+.tint-sunset { background: rgba(255, 130, 90, 0.2); }
+.tint-night { background: rgba(40, 60, 130, 0.32); }
+
+/* Guacamaya mensajera: entra volando desde el cielo y se posa sobre quien terminó */
+.macaw {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  transform: translate(-50%, -105%);
+  animation: macaw-fly 6s ease-in-out forwards;
+}
+.macaw svg { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5)); }
+.macaw .wing { transform-origin: 6px 6px; animation: flap 0.25s ease-in-out infinite alternate; }
+.macaw span {
+  font: 700 10px var(--pixel);
+  background: var(--gold);
+  color: #2a0f08;
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  opacity: 0;
+  animation: macaw-note 6s forwards;
+}
+@keyframes flap { to { transform: scaleY(0.4); } }
+@keyframes macaw-fly {
+  0% { left: -6%; top: -8%; }
+  30%, 80% { left: var(--x); top: var(--y); }
+  100% { left: 110%; top: -10%; }
+}
+@keyframes macaw-note { 0%, 30% { opacity: 0; } 35%, 78% { opacity: 1; } 85%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .macaw, .macaw span, .cloud, .rain, .flash, .stars { animation-duration: 0.01s; }
 }

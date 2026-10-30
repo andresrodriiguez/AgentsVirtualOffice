@@ -37,6 +37,8 @@ export const DEFAULT_LAYOUT: Layout = {
   ],
 };
 
+export const OFFICE_NAME = "La Azotea";
+
 export const CLAUDE_CODE_PROVIDER: Provider = { id: "claude-code", name: "Claude Code (tu suscripción)", kind: "claude-code" };
 
 export function defaultProviders(): Provider[] {
@@ -75,6 +77,10 @@ export function migrateOffice(office: Office): boolean {
   };
   let changed = JSON.stringify(current) !== JSON.stringify(next);
   office.settings = next;
+  if (!office.name || office.name === "Pixel Office") {
+    office.name = OFFICE_NAME;
+    changed = true;
+  }
   if (!(office.providers ?? []).some((p) => p.kind === "claude-code")) {
     office.providers = [...(office.providers ?? []), { ...CLAUDE_CODE_PROVIDER }];
     // Oficinas creadas antes de este provider: si todos estaban en demo, pasan a Claude Code.
@@ -167,7 +173,7 @@ export function defaultOffice(): Office {
   ];
   const providers = defaultProviders();
   return {
-    name: "Pixel Office",
+    name: OFFICE_NAME,
     agents,
     providers,
     layout: structuredClone(DEFAULT_LAYOUT),

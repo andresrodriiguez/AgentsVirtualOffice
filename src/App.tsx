@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { OfficeEvent, PublicOffice } from "../shared/types.ts";
 import { api, useOfficeStream } from "./api.ts";
+import { SkyBand, useMiami, WeatherChip } from "./components/Azotea.tsx";
 import { ActivityPanel, type Activity } from "./components/ActivityPanel.tsx";
 import { ChatPanel } from "./components/ChatPanel.tsx";
 import { type PendingPermission, PermissionModal } from "./components/PermissionModal.tsx";
@@ -22,6 +23,8 @@ export function App() {
   const [editLayout, setEditLayout] = useState(false);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [pending, setPending] = useState<PendingPermission[]>([]);
+  const [macaw, setMacaw] = useState<{ agentId: string; key: number } | null>(null);
+  const miami = useMiami();
   const [looks, setLooks] = useState<Record<string, { status: "drawing" | "done" | "error"; error?: string }>>({});
 
   const onEvent = useCallback(
@@ -36,11 +39,18 @@ export function App() {
       if (ev.type === "permission_request") setPending((p) => [...p.filter((x) => x.callId !== ev.callId), ev]);
       if (ev.type === "permission_resolved") setPending((p) => p.filter((x) => x.callId !== ev.callId));
       if (ev.type === "look_progress") setLooks((l) => ({ ...l, [ev.agentId]: { status: ev.status, error: ev.error } }));
+      if (ev.type === "agent_done") setMacaw({ agentId: ev.agentId, key: Date.now() });
       setRuns((r) => reduceRuns(r, ev));
     },
     [engine],
   );
   const live = useOfficeStream(onEvent);
+
+  useEffect(() => {
+    if (!macaw) return;
+    const t = setTimeout(() => setMacaw(null), 6000);
+    return () => clearTimeout(t);
+  }, [macaw]);
 
   useEffect(() => {
     if (!target) return;
@@ -59,7 +69,7 @@ export function App() {
     return (
       <div className="boot">
         <div className="boot-box">
-          <b>Pixel Office</b>
+          <b>La Azotea</b>
           <span>{live ? "Cargando la oficina…" : "Conectando con el servidor… (¿corriste npm run dev?)"}</span>
         </div>
       </div>
@@ -69,11 +79,12 @@ export function App() {
     <div className="app">
       <header className="top">
         <div className="brand">
-          <div className="logo">▦</div>
+          <img className="logo" src="/favicon.svg" alt="" />
           <div>
             <b>{office.name}</b>
-            <small>AI office · open source</small>
+            <small>La oficina de Andrés</small>
           </div>
+          <WeatherChip {...miami} />
           <span className={`live ${live ? "" : "off"}`}>● {live ? "LIVE" : "OFFLINE"}</span>
         </div>
         <nav>
@@ -116,8 +127,11 @@ export function App() {
                 </button>
               </div>
             </header>
+            <SkyBand {...miami} />
             <OfficeCanvas
               engine={engine}
+              phase={miami.phase}
+              macaw={macaw}
               office={office}
               target={target}
               onPick={setTarget}

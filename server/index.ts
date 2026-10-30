@@ -799,7 +799,7 @@ const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(proc
 if (isMain) {
   startServer()
     .then(({ url, store }) => {
-      console.log(`Pixel Office API en ${url} (datos: ${store.file})`);
+      console.log(`La Azotea API en ${url} (datos: ${store.file})`);
     })
     .catch((err) => {
       console.error(err);

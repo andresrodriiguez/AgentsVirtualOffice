@@ -44,7 +44,7 @@ export function PermissionModal({
 
   return (
     <div className="modal-back" role="dialog" aria-modal="true" aria-labelledby="perm-title">
-      <div className="modal" style={{ ["--c" as string]: agent?.appearance.shirt ?? "#9b7bf2" }}>
+      <div className="modal" style={{ ["--c" as string]: agent?.appearance.shirt ?? "#ff7a5c" }}>
         <div className="modal-head">
           <span className="lock">🔐</span>
           <div>
