@@ -639,7 +639,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         return sendJson(res, 200, notifier.setEnabled(body.enabled));
       }
 
-      case "POST ntfy/test": {
+      case "POST ntfy/:id": {
+        if (id !== "test") throw new HttpError(404, "No encontrada");
         try {
           await notifier.send("Prueba de la oficina", "Si ves esto en tu iPhone, los avisos funcionan.", true);
         } catch (err) {
