@@ -7,7 +7,7 @@ import { defaultSettings, History } from "./store.ts";
 import { AgentMemory, MemoryBlockFilter, memorySection } from "./memory.ts";
 import type { UsageLog } from "./usage.ts";
 import { Permissions, runToolCall, TOOL_SPECS } from "./tools.ts";
-import { actionBody, describeAction, findAgent, ManageBlockFilter, manageSection, needsApproval, ThreadBlockFilter, threadSection, type ManageAction } from "./manage.ts";
+import { actionBody, describeAction, findAgent, ManageBlockFilter, manageSection, needsApproval, ThreadBlockFilter, threadSection, requestSection, type ManageAction } from "./manage.ts";
 
 export const MAX_ASSIGNMENTS = 4;
 export const MAX_TOOL_ITERATIONS = 25;
@@ -27,6 +27,8 @@ export interface RunOptions {
   attachments?: { extra: string; media: Media[]; info: AttachmentInfo[] };
   /** Ejecuta una acción de administración (crear/editar/borrar personas) y devuelve el resultado en una línea. */
   manage?: (action: ManageAction) => Promise<string>;
+  /** Pasa a Mate una solicitud de acceso que hizo otro agente. */
+  askLead?: (from: Agent, request: string) => void;
 }
 
 interface RunContext {
@@ -40,6 +42,7 @@ interface RunContext {
   usage?: UsageLog;
   commandTimeoutMs?: number;
   manage?: (action: ManageAction) => Promise<string>;
+  askLead?: (from: Agent, request: string) => void;
 }
 
 type Emit = (event: OfficeEvent) => void;
@@ -320,11 +323,13 @@ async function runAgent(
       (withTools || claudeCode ? toolsSystem(agent, settings) : agentSystem(agent)) +
       (mail ? MAIL_RULES : "") +
       (admin ? manageSection(office.agents) : "") +
+      (!admin && ctx.askLead ? requestSection() : "") +
       (ctx.memory ? threadSection(history.get(agent.id).reduce((n, m) => n + m.content.length, 0)) : "") +
       (ctx.memory ? memorySection(memory, true) : "");
     const filter = new MemoryBlockFilter();
     const boss = admin ? new ManageBlockFilter() : undefined;
     const thread = ctx.memory ? new ThreadBlockFilter() : undefined;
+    const asks = !admin && ctx.askLead ? new ThreadBlockFilter("solicitud") : undefined;
     const media = provider.kind === "claude-code" ? (extras?.media ?? []) : [];
     const conv: ConvMessage[] = [...compactHistory(history.get(agent.id)), { role: "user", content: withExtras(message, extras), media }];
     let text = "";
@@ -340,7 +345,10 @@ async function runAgent(
       const tools = withTools ? TOOL_SPECS : undefined;
       for await (const chunk of streamChat({ provider, model: agent.model, effort: agent.effort, mail: agent.mail === true && provider.kind === "claude-code", imapConfig, system, messages: conv, tools, claudeCode })) {
         if (chunk.text) {
-          const visible = filter.push(thread ? thread.push(boss ? boss.push(chunk.text) : chunk.text) : boss ? boss.push(chunk.text) : chunk.text);
+          let piece = boss ? boss.push(chunk.text) : chunk.text;
+          if (asks) piece = asks.push(piece);
+          if (thread) piece = thread.push(piece);
+          const visible = filter.push(piece);
           if (visible) {
             if (!stepText && text && !text.endsWith("\n")) say("\n\n");
             stepText += visible;
@@ -354,7 +362,7 @@ async function runAgent(
           recordUsage(ctx, agent, provider, "respuesta", chunk.usage);
         }
       }
-      const rest = filter.flush() + (boss?.flush() ?? "") + (thread?.flush() ?? "");
+      const rest = filter.flush() + (boss?.flush() ?? "") + (asks?.flush() ?? "") + (thread?.flush() ?? "");
       if (rest) say(rest);
       if (!withTools || toolCalls.length === 0) break;
       if (step >= MAX_TOOL_ITERATIONS) {
@@ -386,6 +394,7 @@ async function runAgent(
     if (ctx.memory && filter.ops.length) await ctx.memory.apply(agent.id, filter.ops).catch((err) => console.error("[memoria]", err));
     // En el historial quedan sólo los nombres de los adjuntos: reenviarlos enteros en cada llamada sale caro.
     history.push(agent.id, { role: "user", content: message + (extras?.names ?? "") }, { role: "assistant", content: text });
+    for (const request of asks?.summaries ?? []) ctx.askLead?.(agent, request);
     if (thread?.summaries.length && ctx.memory) {
       await ctx.memory.apply(agent.id, [{ mode: "append", text: `Resumen del hilo anterior: ${thread.summaries.join("\n")}` }]).catch((err) => console.error("[hilo]", err));
       history.reset(agent.id);
@@ -416,6 +425,8 @@ export async function runMessage(
     memory: options.memory,
     usage: options.usage,
     commandTimeoutMs: options.commandTimeoutMs,
+    manage: options.manage,
+    askLead: options.askLead,
   };
   const att = options.attachments;
   emit({ type: "run_start", runId, text, target, ...(att?.info.length ? { attachments: att.info } : {}) });

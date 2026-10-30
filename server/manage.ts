@@ -111,11 +111,16 @@ export class ThreadBlockFilter {
   readonly summaries: string[] = [];
   private pending = "";
   private block: string | null = null;
-  private static OPEN = "<nuevo_hilo>";
-  private static CLOSE = "</nuevo_hilo>";
+  private readonly OPEN: string;
+  private readonly CLOSE: string;
+
+  constructor(tag = "nuevo_hilo") {
+    this.OPEN = `<${tag}>`;
+    this.CLOSE = `</${tag}>`;
+  }
 
   push(chunk: string): string {
-    const { OPEN, CLOSE } = ThreadBlockFilter;
+    const { OPEN, CLOSE } = this;
     let buf = this.pending + chunk;
     this.pending = "";
     let out = "";
@@ -160,6 +165,13 @@ export class ThreadBlockFilter {
   }
 }
 
+export function requestSection(): string {
+  return `
+
+## Pedir accesos o ayuda a Mate
+Si para tu trabajo necesitas un acceso, permiso, herramienta o que alguien configure algo que tú no puedes (por ejemplo leer un correo, usar la PC, una carpeta, otra cuenta), no lo intentes por tu cuenta: escribe al final de tu respuesta un bloque <solicitud>qué necesitas, para qué y por qué</solicitud>. Mate se lo plantea a Andrés y, si Andrés lo aprueba, te lo configura. Dile a Andrés en una línea que lo pediste.`;
+}
+
 export const THREAD_AFTER_CHARS = 12000;
 
 export function threadSection(historyChars: number): string {
@@ -185,6 +197,7 @@ Eres el administrador de la oficina: Andrés te da la autoridad para crear y con
 - Borrar: <oficina>{"accion":"borrar","quien":"id o nombre"}</oficina>
 - Abrir hilo nuevo con alguien cuya conversación se alargó (su historial se vacía y el resumen pasa a su memoria): <oficina>{"accion":"nuevo_hilo","quien":"id o nombre","resumen":"…"}</oficina>
 Cambiar de cuenta/proveedor (providerId), dar acceso a la PC (tools), al correo (mail), carpeta de trabajo (workspace), liderazgo o administración, y borrar a alguien: Andrés lo confirma en pantalla antes; pídelo igual sin dudar. Enviar correos o tocar archivos no es parte de esto y sigue sujeto a los permisos de cada herramienta.
+Si un compañero te manda una solicitud de acceso, explícale a Andrés en pocas líneas quién la pide, qué necesita y qué riesgo tiene, y recomienda aprobarla o no. Si Andrés la aprueba, ejecuta el cambio con una acción <oficina> (editar con mail, imap, tools, providerId, etc.); Andrés te la confirma en pantalla. Lo que no puedas conceder con tus acciones (por ejemplo conectar una cuenta nueva), dile a Andrés qué paso debe hacer él.
 Controlar la PC de Andrés (Windows, cmd.exe): <oficina>{"accion":"comando","comando":"start \"\" spotify:"}</oficina>. Cada comando le aparece a Andrés para que lo apruebe y luego ves el resultado en tu mensaje. Sin entrada interactiva y con límite de 120 s; una acción por comando. Ejemplos: abrir apps (start "" nombre, start "" https://…, start "" spotify:), ver procesos (tasklist), cerrar uno (taskkill /im nombre.exe), espacio en disco (wmic logicaldisk get caption,freespace,size), limpiar temporales (del /q /f /s "%TEMP%\*"). Antes de borrar algo, muestra primero qué vas a borrar (dir) y qué espacio liberarás. Nunca formatees, toques el registro ni borres fuera de temporales/papelera sin que Andrés lo pida con esas palabras.
 Proveedores disponibles: claude-code (cuenta por defecto), claude-misterloans, claude-cala. Al crear una persona sin proveedor usa el tuyo. Explica en una línea qué vas a cambiar y por qué.
 Equipo actual:

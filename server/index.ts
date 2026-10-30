@@ -473,6 +473,19 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
           runId,
           attachments,
           manage: (action) => manageOffice(action),
+          askLead: (from, request) => {
+            const lead = store.office.agents.find((a) => a.lead);
+            if (!lead || lead.id === from.id) return;
+            const text = `Solicitud de ${from.name} (${from.role}): ${request}`;
+            runMessage(structuredClone(store.office), text, lead.id, broadcast, {
+              history: store.history,
+              memory,
+              usage,
+              permissions,
+              commandTimeoutMs: options.commandTimeoutMs,
+              manage: (action) => manageOffice(action),
+            }).catch((err) => console.error("[solicitud]", err));
+          },
           history: store.history,
           memory,
           usage,
