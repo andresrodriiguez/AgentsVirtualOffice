@@ -71,6 +71,49 @@ function TaskCard({ task, office, reload }: { task: Task; office: PublicOffice; 
   );
 }
 
+function Alerts() {
+  const [state, setState] = useState<{ enabled: boolean; topic: string } | null>(null);
+  const [msg, setMsg] = useState("");
+  useEffect(() => void api.ntfy().then(setState).catch(() => {}), []);
+  if (!state) return null;
+  return (
+    <div className="provider task">
+      <div className="task-head">
+        <b>📱 Avisos al iPhone (ntfy)</b>
+        <span className="spacer" />
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={state.enabled}
+            onChange={(e) => api.setNtfy(e.target.checked).then(setState).catch((err) => setMsg((err as Error).message))}
+          />
+          Activados
+        </label>
+      </div>
+      <small>
+        1) Instala la app <b>ntfy</b> (App Store, gratis). 2) En la app toca <b>+</b> y suscríbete al tema de abajo. 3) Pulsa "Enviar prueba". Te
+        avisa cuando un agente espera tu permiso o cuando terminan con la oficina cerrada. El aviso nunca incluye el contenido de tus correos o archivos.
+      </small>
+      <code style={{ userSelect: "all" }}>{state.topic}</code>
+      <div className="task-actions">
+        {msg && <small>{msg}</small>}
+        <span className="spacer" />
+        <button
+          className="ghost"
+          onClick={() =>
+            api
+              .testNtfy()
+              .then(() => setMsg("Enviado: mira tu iPhone"))
+              .catch((e) => setMsg((e as Error).message))
+          }
+        >
+          Enviar prueba
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function TasksEditor({ office }: { office: PublicOffice }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const load = () => api.tasks().then(setTasks).catch(() => {});
@@ -90,6 +133,7 @@ export function TasksEditor({ office }: { office: PublicOffice }) {
         </button>
       </div>
       <div className="cards">
+        <Alerts />
         {tasks.map((t) => (
           <TaskCard key={t.id} task={t} office={office} reload={load} />
         ))}

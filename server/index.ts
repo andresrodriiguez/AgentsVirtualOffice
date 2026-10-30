@@ -8,6 +8,7 @@ import { generateLookImage, LOOK_FILE_RE, LOOK_MIME, lookFileFromSrc, lookFileNa
 import { AgentMemory } from "./memory.ts";
 import { runMessage } from "./orchestrator.ts";
 import { Tasks } from "./schedule.ts";
+import { Notifier } from "./notify.ts";
 import { actionBody, findAgent, type ManageAction } from "./manage.ts";
 import { AttachmentError, type Prepared, prepareAttachments } from "./attachments.ts";
 import { UsageLog } from "./usage.ts";
@@ -259,6 +260,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   const memory = new AgentMemory(join(dataDir, "agentes"));
   const usage = new UsageLog(join(dataDir, "uso.jsonl"));
   const tasks = new Tasks(join(dataDir, "tareas.json"));
+  const notifier = new Notifier(join(dataDir, "avisos.json"));
   const clients = new Set<ServerResponse>();
   const permissions = new Permissions(options.permissionTimeoutMs);
   const drawing = new Set<string>();
@@ -275,6 +277,13 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   const send = (res: ServerResponse, event: OfficeEvent) => res.write(`data: ${JSON.stringify(event)}\n\n`);
   const broadcast = (event: OfficeEvent) => {
     for (const res of clients) send(res, event);
+    // Avisos al celular, siempre genéricos: sin el contenido del comando ni de los archivos.
+    const who = (id: string) => store.office.agents.find((a) => a.id === id)?.name ?? "Un agente";
+    if (event.type === "permission_request") {
+      void notifier.send("Necesito tu permiso", `${who(event.agentId)} espera tu aprobación en la oficina.`).catch(() => {});
+    } else if (event.type === "run_done" && clients.size === 0) {
+      void notifier.send("Tarea terminada", "Los agentes terminaron. Abre la oficina para ver el resultado.").catch(() => {});
+    }
   };
   const officeChanged = async () => {
     await store.save();
@@ -619,6 +628,24 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         });
         res.end(data);
         return;
+      }
+
+      case "GET ntfy":
+        return sendJson(res, 200, notifier.get());
+
+      case "PUT ntfy": {
+        const body = asObject(await readJson(req));
+        if (typeof body.enabled !== "boolean") throw new HttpError(400, '"enabled" tiene que ser boolean');
+        return sendJson(res, 200, notifier.setEnabled(body.enabled));
+      }
+
+      case "POST ntfy/test": {
+        try {
+          await notifier.send("Prueba de la oficina", "Si ves esto en tu iPhone, los avisos funcionan.", true);
+        } catch (err) {
+          throw new HttpError(502, `No se pudo enviar el aviso: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        return sendJson(res, 200, { ok: true });
       }
 
       case "GET tasks":
