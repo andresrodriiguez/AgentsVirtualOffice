@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { Agent, Assignment, AttachmentInfo, ChatMessage, Office, OfficeEvent, Provider, Settings } from "../shared/types.ts";
+import type { Agent, Assignment, AttachmentInfo, ChatMessage, Office, OfficeEvent, Provider, Settings, ToolName } from "../shared/types.ts";
 import { streamChat, type ChatRequest, type ConvMessage, type Media, type ToolCall } from "./providers.ts";
 import { defaultSettings, History } from "./store.ts";
 import { AgentMemory, MemoryBlockFilter, memorySection } from "./memory.ts";
@@ -253,6 +253,33 @@ function withExtras(message: string, extras?: Extras): string {
 ${extras.extra}` : message;
 }
 
+const ACTIVITY_NAMES: Record<string, ToolName> = {
+  Read: "read_file",
+  Glob: "list_dir",
+  Grep: "search",
+  Edit: "edit_file",
+  Write: "write_file",
+  Bash: "run_command",
+};
+
+/** Traduce una herramienta de Claude Code a la forma que ya entiende el panel de actividad. */
+function activityOf(name: string, input: Record<string, unknown>): { name: ToolName; args: Record<string, unknown>; summary: string } | null {
+  const mapped = ACTIVITY_NAMES[name];
+  if (!mapped) return null;
+  const path = String(input.file_path ?? input.path ?? input.pattern ?? "");
+  const args: Record<string, unknown> =
+    mapped === "edit_file"
+      ? { path, old_string: input.old_string, new_string: input.new_string }
+      : mapped === "write_file"
+        ? { path, content: input.content }
+        : mapped === "run_command"
+          ? { command: input.command }
+          : { path, pattern: input.pattern };
+  const summary =
+    mapped === "run_command" ? String(input.command ?? "").slice(0, 200) : `${mapped === "edit_file" ? "editar" : mapped === "write_file" ? "escribir" : mapped === "read_file" ? "leer" : "buscar"} ${path}`;
+  return { name: mapped, args, summary };
+}
+
 async function runManageActions(ctx: RunContext, agent: Agent, actions: ManageAction[], settings: Settings): Promise<string[]> {
   const lines: string[] = [];
   for (const action of actions) {
@@ -353,6 +380,14 @@ async function runAgent(
             if (!stepText && text && !text.endsWith("\n")) say("\n\n");
             stepText += visible;
             say(visible);
+          }
+        }
+        if (chunk.toolUse) {
+          const shown = activityOf(chunk.toolUse.name, chunk.toolUse.input);
+          if (shown) {
+            const callId = randomUUID();
+            emit({ type: "tool_call", runId, agentId: agent.id, callId, name: shown.name, args: shown.args, summary: shown.summary });
+            emit({ type: "tool_result", runId, agentId: agent.id, callId, ok: true, output: "" });
           }
         }
         if (chunk.toolCalls) toolCalls = chunk.toolCalls;

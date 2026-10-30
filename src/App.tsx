@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { OfficeEvent, PublicOffice } from "../shared/types.ts";
 import { api, useOfficeStream } from "./api.ts";
+import { ActivityPanel, type Activity } from "./components/ActivityPanel.tsx";
 import { ChatPanel } from "./components/ChatPanel.tsx";
 import { type PendingPermission, PermissionModal } from "./components/PermissionModal.tsx";
 import { ProvidersEditor } from "./components/ProvidersEditor.tsx";
@@ -18,6 +19,7 @@ export function App() {
   const [target, setTarget] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("office");
   const [editLayout, setEditLayout] = useState(false);
+  const [activity, setActivity] = useState<Activity[]>([]);
   const [pending, setPending] = useState<PendingPermission[]>([]);
   const [looks, setLooks] = useState<Record<string, { status: "drawing" | "done" | "error"; error?: string }>>({});
 
@@ -28,6 +30,7 @@ export function App() {
         setOffice(ev.office);
         setTarget((t) => (t && ev.office.agents.some((a) => a.id === t) ? t : null));
       }
+      if (ev.type === "tool_call" && ev.name !== "gestionar_oficina") setActivity((a) => [...a.slice(-39), { ...ev, at: Date.now() }]);
       if (ev.type === "permission_request") setPending((p) => [...p.filter((x) => x.callId !== ev.callId), ev]);
       if (ev.type === "permission_resolved") setPending((p) => p.filter((x) => x.callId !== ev.callId));
       if (ev.type === "look_progress") setLooks((l) => ({ ...l, [ev.agentId]: { status: ev.status, error: ev.error } }));
@@ -116,6 +119,7 @@ export function App() {
               editLayout={editLayout}
               onLayout={(l) => void api.saveLayout(l)}
             />
+            {!target && <ActivityPanel office={office} items={activity} />}
             <footer className="stage-foot">
               <span>
                 ● {office.agents.length - busyAgents.size}/{office.agents.length} libres

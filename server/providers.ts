@@ -37,6 +37,8 @@ export interface ChatChunk {
   text?: string;
   usage?: { input: number; output: number; cached?: number; costUsd?: number };
   toolCalls?: ToolCall[];
+  /** Sólo Claude Code: una herramienta que el agente ya usó (para mostrar la actividad; no se ejecuta aquí). */
+  toolUse?: { name: string; input: Record<string, unknown> };
 }
 
 export interface ChatRequest {
@@ -434,6 +436,7 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
   try {
     let usage: ChatChunk["usage"];
     let failure = "";
+    const openTools = new Map<number, { name: string; json: string }>();
     for await (const line of createInterface({ input: child.stdout })) {
       let msg: any;
       try {
@@ -442,6 +445,24 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
         continue;
       }
       const ev = msg.type === "stream_event" ? msg.event : undefined;
+      if (ev && !msg.parent_tool_use_id) {
+        if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+          openTools.set(ev.index, { name: String(ev.content_block.name), json: "" });
+        } else if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") {
+          const t = openTools.get(ev.index);
+          if (t && t.json.length < 200_000) t.json += ev.delta.partial_json ?? "";
+        } else if (ev.type === "content_block_stop" && openTools.has(ev.index)) {
+          const t = openTools.get(ev.index)!;
+          openTools.delete(ev.index);
+          let input: Record<string, unknown> = {};
+          try {
+            input = JSON.parse(t.json || "{}");
+          } catch {
+            // entrada cortada: se muestra sólo el nombre
+          }
+          yield { toolUse: { name: t.name, input } };
+        }
+      }
       if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta" && !msg.parent_tool_use_id) {
         yield { text: ev.delta.text };
       } else if (ev?.type === "content_block_start" && ev.content_block?.type === "tool_use" && !msg.parent_tool_use_id) {
