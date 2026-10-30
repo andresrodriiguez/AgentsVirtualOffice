@@ -33,7 +33,7 @@ for (const spec of wanted) {
   const existing = office.agents.find((a) => a.id === (match ?? "") || a.name.toLowerCase() === fields.name.toLowerCase());
   if (existing) {
     // Acceso a la PC y carpeta de trabajo se conservan: se configuran aparte, por persona.
-    const { tools: _tools, workspace: _workspace, ...update } = fields;
+    const { tools: _tools, mail: _mail, manager: _manager, imap: _imap, calendar: _calendar, workspace: _workspace, ...update } = fields;
     await call("PUT", `/api/agents/${existing.id}`, update);
     kept.add(existing.id);
     console.log(`actualizado: ${fields.name}`);

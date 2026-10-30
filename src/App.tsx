@@ -1,15 +1,18 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { OfficeEvent, PublicOffice } from "../shared/types.ts";
 import { api, useOfficeStream } from "./api.ts";
+import { SkyBand, useValencia, WeatherChip } from "./components/Azotea.tsx";
+import { ActivityPanel, type Activity } from "./components/ActivityPanel.tsx";
 import { ChatPanel } from "./components/ChatPanel.tsx";
 import { type PendingPermission, PermissionModal } from "./components/PermissionModal.tsx";
 import { ProvidersEditor } from "./components/ProvidersEditor.tsx";
+import { TasksEditor } from "./components/TasksEditor.tsx";
 import { TeamEditor } from "./components/TeamEditor.tsx";
 import { OfficeEngine } from "./office/engine.ts";
 import { OfficeCanvas } from "./office/OfficeCanvas.tsx";
 import { type Run, reduceRuns } from "./runs.ts";
 
-type Tab = "office" | "team" | "models";
+type Tab = "office" | "team" | "tasks" | "models";
 
 export function App() {
   const engine = useMemo(() => new OfficeEngine(), []);
@@ -18,7 +21,10 @@ export function App() {
   const [target, setTarget] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("office");
   const [editLayout, setEditLayout] = useState(false);
+  const [activity, setActivity] = useState<Activity[]>([]);
   const [pending, setPending] = useState<PendingPermission[]>([]);
+  const [macaw, setMacaw] = useState<{ agentId: string; key: number } | null>(null);
+  const clima = useValencia();
   const [looks, setLooks] = useState<Record<string, { status: "drawing" | "done" | "error"; error?: string }>>({});
 
   const onEvent = useCallback(
@@ -28,14 +34,32 @@ export function App() {
         setOffice(ev.office);
         setTarget((t) => (t && ev.office.agents.some((a) => a.id === t) ? t : null));
       }
+      if (ev.type === "tool_call" && ev.name !== "gestionar_oficina") setActivity((a) => [...a.slice(-39), { ...ev, at: Date.now() }]);
+      if (ev.type === "tool_result") setActivity((a) => a.map((x) => (x.callId === ev.callId ? { ...x, output: ev.output } : x)));
       if (ev.type === "permission_request") setPending((p) => [...p.filter((x) => x.callId !== ev.callId), ev]);
       if (ev.type === "permission_resolved") setPending((p) => p.filter((x) => x.callId !== ev.callId));
       if (ev.type === "look_progress") setLooks((l) => ({ ...l, [ev.agentId]: { status: ev.status, error: ev.error } }));
+      if (ev.type === "agent_done") setMacaw({ agentId: ev.agentId, key: Date.now() });
       setRuns((r) => reduceRuns(r, ev));
     },
     [engine],
   );
   const live = useOfficeStream(onEvent);
+
+  useEffect(() => {
+    if (!macaw) return;
+    const t = setTimeout(() => setMacaw(null), 6000);
+    return () => clearTimeout(t);
+  }, [macaw]);
+
+  useEffect(() => {
+    if (!target) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTarget(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [target]);
 
   const tokens = runs.reduce((n, r) => n + r.entries.reduce((m, e) => m + e.tokens, 0), 0);
   const working = runs.some((r) => !r.done);
@@ -45,7 +69,7 @@ export function App() {
     return (
       <div className="boot">
         <div className="boot-box">
-          <b>Pixel Office</b>
+          <b>La Azotea</b>
           <span>{live ? "Cargando la oficina…" : "Conectando con el servidor… (¿corriste npm run dev?)"}</span>
         </div>
       </div>
@@ -55,11 +79,12 @@ export function App() {
     <div className="app">
       <header className="top">
         <div className="brand">
-          <div className="logo">▦</div>
+          <img className="logo" src="/favicon.svg" alt="" />
           <div>
             <b>{office.name}</b>
-            <small>AI office · open source</small>
+            <small>La oficina de Andrés</small>
           </div>
+          <WeatherChip {...clima} />
           <span className={`live ${live ? "" : "off"}`}>● {live ? "LIVE" : "OFFLINE"}</span>
         </div>
         <nav>
@@ -68,6 +93,9 @@ export function App() {
           </button>
           <button className={tab === "team" ? "on" : ""} onClick={() => setTab("team")}>
             👥 Equipo <em>{office.agents.length}</em>
+          </button>
+          <button className={tab === "tasks" ? "on" : ""} onClick={() => setTab("tasks")}>
+            ⏰ Tareas
           </button>
           <button className={tab === "models" ? "on" : ""} onClick={() => setTab("models")}>
             🔌 Modelos
@@ -87,36 +115,35 @@ export function App() {
       </header>
 
       {tab === "office" && (
-        <main className="main">
+        <main className={`main ${target ? "focus" : ""}`}>
           <section className="panel stage">
             <header className="panel-head">
               <span>
                 <i className={`dot ${working ? "on" : ""}`} /> Oficina
               </span>
               <div className="stage-actions">
-                {target && (
-                  <button className="ghost" onClick={() => setTarget(null)}>
-                    Hablando con {office.agents.find((a) => a.id === target)?.name} ✕
-                  </button>
-                )}
                 <button className={`ghost ${editLayout ? "on" : ""}`} onClick={() => setEditLayout((v) => !v)}>
                   {editLayout ? "✓ Listo" : "✥ Escritorios"}
                 </button>
               </div>
             </header>
+            <SkyBand {...clima} />
             <OfficeCanvas
               engine={engine}
+              phase={clima.phase}
+              macaw={macaw}
               office={office}
               target={target}
               onPick={setTarget}
               editLayout={editLayout}
               onLayout={(l) => void api.saveLayout(l)}
             />
+            <ActivityPanel office={office} items={activity} />
             <footer className="stage-foot">
               <span>
                 ● {office.agents.length - busyAgents.size}/{office.agents.length} libres
               </span>
-              <span>Clic en alguien para hablarle directo</span>
+              <span>{target ? "Clic en otra persona para cambiar" : "Clic en alguien para hablarle directo"}</span>
             </footer>
           </section>
           <ChatPanel
@@ -125,13 +152,14 @@ export function App() {
             target={target}
             setTarget={setTarget}
             busy={working}
-            onSend={async (text) => {
-              await api.send(text, target);
+            onSend={async (text, files) => {
+              await api.send(text, target, files);
             }}
           />
         </main>
       )}
       {tab === "team" && <TeamEditor office={office} looks={looks} />}
+      {tab === "tasks" && <TasksEditor office={office} />}
       {tab === "models" && <ProvidersEditor office={office} />}
       {pending.length > 0 && (
         <PermissionModal

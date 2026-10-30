@@ -179,6 +179,19 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
             Modelo
             <input value={draft.model} placeholder={provider?.kind === "anthropic" ? "claude-sonnet-5-5" : provider?.kind === "claude-code" ? "sonnet" : "gpt-4o-mini"} onChange={(e) => set("model", e.target.value)} />
           </label>
+          {provider?.kind === "claude-code" && (
+            <label>
+              Esfuerzo
+              <select value={draft.effort ?? ""} onChange={(e) => set("effort", e.target.value)}>
+                <option value="">Por defecto</option>
+                <option value="low">Bajo</option>
+                <option value="medium">Medio</option>
+                <option value="high">Alto</option>
+                <option value="xhigh">Muy alto</option>
+                <option value="max">Máximo</option>
+              </select>
+            </label>
+          )}
           <label>
             Escritorio
             <select value={draft.seat} onChange={(e) => set("seat", Number(e.target.value))}>
@@ -197,6 +210,28 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
           <input type="checkbox" checked={!!draft.tools} onChange={(e) => set("tools", e.target.checked)} />
           🖥 Puede usar la PC (leer, escribir y correr comandos; te pide permiso)
         </label>
+        {provider?.kind === "claude-code" && (
+          <label className="check pc-toggle">
+            <input type="checkbox" checked={!!draft.calendar} onChange={(e) => set("calendar", e.target.checked)} />
+            📅 Puede usar Google Calendar de su cuenta (ve la agenda; crea eventos si le confirmas)
+          </label>
+        )}
+        {provider?.kind === "claude-code" && (
+          <label className="check pc-toggle">
+            <input type="checkbox" checked={!!draft.imap} onChange={(e) => set("imap", e.target.checked)} />
+            ✉ Correo por IMAP (Zoho u otro; lee y deja borradores; requiere configurarlo en la PC)
+          </label>
+        )}
+        <label className="check pc-toggle">
+          <input type="checkbox" checked={!!draft.manager} onChange={(e) => set("manager", e.target.checked)} />
+          🛠 Administra la oficina (crea y configura a los demás; lo delicado te lo pregunta)
+        </label>
+        {provider?.kind === "claude-code" && (
+          <label className="check pc-toggle">
+            <input type="checkbox" checked={!!draft.mail} onChange={(e) => set("mail", e.target.checked)} />
+            ✉ Puede usar el Gmail de su cuenta (lee y deja borradores; no envía ni borra)
+          </label>
+        )}
         {draft.tools && (
           <label>
             Carpeta de trabajo (opcional)

@@ -31,10 +31,20 @@ export interface Agent {
   prompt: string;
   providerId: string;
   model: string;
+  /** Sólo Claude Code: low, medium, high, xhigh o max. Vacío = el que traiga la cuenta. */
+  effort?: string;
   appearance: Appearance;
   seat: number;
   lead?: boolean;
   tools?: boolean;
+  /** Sólo Claude Code: puede usar el conector de Gmail de su cuenta, en solo lectura y borradores. */
+  mail?: boolean;
+  /** Puede crear y configurar a las demás personas del equipo (con confirmación en lo delicado). */
+  manager?: boolean;
+  /** Sólo Claude Code: correo por IMAP (p. ej. Zoho) en solo lectura y borradores; se configura con scripts/correo-config.mjs. */
+  imap?: boolean;
+  /** Sólo Claude Code: Google Calendar de su cuenta (ver, crear y editar eventos; no borra ni responde invitaciones). */
+  calendar?: boolean;
   /** Carpeta de trabajo propia; si falta, se usa la de Ajustes. */
   workspace?: string;
   look?: Look;
@@ -93,17 +103,22 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface AttachmentInfo {
+  name: string;
+  kind: "image" | "pdf" | "text";
+}
+
 export interface Assignment {
   agentId: string;
   task: string;
 }
 
-export type ToolName = "list_dir" | "read_file" | "search" | "write_file" | "edit_file" | "run_command";
+export type ToolName = "list_dir" | "read_file" | "search" | "write_file" | "edit_file" | "run_command" | "gestionar_oficina";
 
 export type PermissionDecision = "allow" | "always" | "deny";
 
 export type OfficeEvent =
-  | { type: "run_start"; runId: string; text: string; target: string | null }
+  | { type: "run_start"; runId: string; text: string; target: string | null; attachments?: AttachmentInfo[] }
   | { type: "routing"; runId: string; leadId: string }
   | { type: "route"; runId: string; leadId: string; note: string; assignments: Assignment[] }
   | { type: "agent_start"; runId: string; agentId: string; task: string; from: string | null }
@@ -116,4 +131,5 @@ export type OfficeEvent =
   | { type: "tool_result"; runId: string; agentId: string; callId: string; ok: boolean; output: string }
   | { type: "look_progress"; agentId: string; status: "drawing" | "done" | "error"; error?: string }
   | { type: "run_done"; runId: string }
+  | { type: "ping" }
   | { type: "office"; office: PublicOffice };

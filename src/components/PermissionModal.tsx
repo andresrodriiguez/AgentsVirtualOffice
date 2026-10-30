@@ -10,10 +10,12 @@ const TOOL_LABEL: Record<PendingPermission["name"], string> = {
   write_file: "Escribir un archivo",
   edit_file: "Editar un archivo",
   run_command: "Correr un comando",
+  gestionar_oficina: "Cambiar el equipo",
 };
 
 function detail(req: PendingPermission): string {
   const a = req.args;
+  if (req.name === "gestionar_oficina") return JSON.stringify(a, null, 2);
   if (req.name === "run_command") return `$ ${String(a.command ?? "")}${a.cwd ? `\n(en ${String(a.cwd)})` : ""}`;
   if (req.name === "write_file") return `${String(a.path ?? "")}\n\n${String(a.content ?? "").slice(0, 1200)}`;
   if (req.name === "edit_file") return `${String(a.path ?? "")}\n\n- ${String(a.old_string ?? "").slice(0, 500)}\n+ ${String(a.new_string ?? "").slice(0, 500)}`;
@@ -42,7 +44,7 @@ export function PermissionModal({
 
   return (
     <div className="modal-back" role="dialog" aria-modal="true" aria-labelledby="perm-title">
-      <div className="modal" style={{ ["--c" as string]: agent?.appearance.shirt ?? "#9b7bf2" }}>
+      <div className="modal" style={{ ["--c" as string]: agent?.appearance.shirt ?? "#ff7a5c" }}>
         <div className="modal-head">
           <span className="lock">🔐</span>
           <div>

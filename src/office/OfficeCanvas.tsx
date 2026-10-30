@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Macaw, type Phase } from "../components/Azotea.tsx";
 import type { Layout, PublicOffice, Seat } from "../../shared/types.ts";
 import type { OfficeEngine, Snapshot } from "./engine.ts";
 import { ThreeOffice } from "./three-renderer.ts";
@@ -10,9 +11,11 @@ interface Props {
   onPick: (id: string | null) => void;
   editLayout: boolean;
   onLayout: (l: Layout) => void;
+  phase?: Phase;
+  macaw?: { agentId: string; key: number } | null;
 }
 
-export function OfficeCanvas({ engine, office, target, onPick, editLayout, onLayout }: Props) {
+export function OfficeCanvas({ engine, office, target, onPick, editLayout, onLayout, phase = "day", macaw }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [snaps, setSnaps] = useState<Snapshot[]>([]);
@@ -96,6 +99,7 @@ export function OfficeCanvas({ engine, office, target, onPick, editLayout, onLay
           onPick(engine.hit(p.x, p.y));
         }}
       />
+      <div className={`tint tint-${phase}`} />
       <div className="overlay">
         {!editLayout &&
           snaps.map((s) => (
@@ -117,6 +121,14 @@ export function OfficeCanvas({ engine, office, target, onPick, editLayout, onLay
               </div>
             </div>
           ))}
+        {!editLayout &&
+          macaw &&
+          (() => {
+            const s = snaps.find((x) => x.id === macaw.agentId);
+            if (!s) return null;
+            const p = pct(s.x, s.top);
+            return <Macaw key={macaw.key} x={p.left} y={p.top} name={s.name} />;
+          })()}
         {editLayout &&
           seats.map((seat, i) => (
             <div
