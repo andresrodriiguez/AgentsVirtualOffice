@@ -31,6 +31,8 @@ export interface Agent {
   prompt: string;
   providerId: string;
   model: string;
+  /** Sólo Claude Code: low, medium, high, xhigh o max. Vacío = el que traiga la cuenta. */
+  effort?: string;
   appearance: Appearance;
   seat: number;
   lead?: boolean;

@@ -179,7 +179,7 @@ async function collect(ctx: RunContext, agent: Agent, system: string, messages: 
   const provider = office.providers.find((p) => p.id === agent.providerId);
   if (!provider) throw new Error(`Provider "${agent.providerId}" no existe`);
   let text = "";
-  for await (const chunk of streamChat({ provider, model: agent.model, system, messages })) {
+  for await (const chunk of streamChat({ provider, model: agent.model, effort: agent.effort, system, messages })) {
     if (chunk.text) text += chunk.text;
     if (chunk.usage) recordUsage(ctx, agent, provider, "ruteo", chunk.usage);
   }
@@ -273,7 +273,7 @@ async function runAgent(
       let stepText = "";
       let toolCalls: ToolCall[] = [];
       const tools = withTools ? TOOL_SPECS : undefined;
-      for await (const chunk of streamChat({ provider, model: agent.model, system, messages: conv, tools, claudeCode })) {
+      for await (const chunk of streamChat({ provider, model: agent.model, effort: agent.effort, system, messages: conv, tools, claudeCode })) {
         if (chunk.text) {
           const visible = filter.push(chunk.text);
           if (visible) {

@@ -179,6 +179,19 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
             Modelo
             <input value={draft.model} placeholder={provider?.kind === "anthropic" ? "claude-sonnet-5-5" : provider?.kind === "claude-code" ? "sonnet" : "gpt-4o-mini"} onChange={(e) => set("model", e.target.value)} />
           </label>
+          {provider?.kind === "claude-code" && (
+            <label>
+              Esfuerzo
+              <select value={draft.effort ?? ""} onChange={(e) => set("effort", e.target.value)}>
+                <option value="">Por defecto</option>
+                <option value="low">Bajo</option>
+                <option value="medium">Medio</option>
+                <option value="high">Alto</option>
+                <option value="xhigh">Muy alto</option>
+                <option value="max">Máximo</option>
+              </select>
+            </label>
+          )}
           <label>
             Escritorio
             <select value={draft.seat} onChange={(e) => set("seat", Number(e.target.value))}>

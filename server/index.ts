@@ -122,7 +122,7 @@ function validLook(value: unknown): Look | null {
 
 function agentPatch(body: Record<string, unknown>): AgentPatch {
   const patch: AgentPatch = {};
-  for (const key of ["name", "role", "prompt", "providerId", "model", "workspace"] as const) {
+  for (const key of ["name", "role", "prompt", "providerId", "model", "effort", "workspace"] as const) {
     const v = optString(body, key);
     if (v !== undefined) patch[key] = v;
   }

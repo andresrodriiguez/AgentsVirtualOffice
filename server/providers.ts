@@ -48,6 +48,7 @@ export interface ChatRequest {
   signal?: AbortSignal;
   /** Sólo Claude Code: herramientas propias que puede usar y carpeta donde corre. */
   claudeCode?: { tools: string[]; cwd?: string; acceptEdits?: boolean };
+  effort?: string;
 }
 
 export async function* parseSSE(
@@ -306,7 +307,7 @@ export function toClaudeCodePrompt(messages: ConvMessage[]): string {
   return `Conversación hasta ahora:\n\n${past}\n\nNuevo mensaje del usuario:\n\n${turns[turns.length - 1].content}`;
 }
 
-export function claudeCodeArgs(model: string, systemFile: string, tools: string[], acceptEdits = false, streamInput = false): string[] {
+export function claudeCodeArgs(model: string, systemFile: string, tools: string[], acceptEdits = false, streamInput = false, effort = ""): string[] {
   const args = [
     "-p",
     "--output-format",
@@ -328,6 +329,7 @@ export function claudeCodeArgs(model: string, systemFile: string, tools: string[
   if (acceptEdits) args.push("--permission-mode", "acceptEdits");
   if (model && model !== "demo") args.push("--model", model);
   if (streamInput) args.push("--input-format", "stream-json");
+  if (effort) args.push("--effort", effort);
   return args;
 }
 
@@ -376,7 +378,7 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
   await writeFile(systemFile, req.system, "utf8");
   const opts = req.claudeCode ?? { tools: [] };
   const media = lastMedia(req.messages);
-  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits, media.length > 0);
+  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits, media.length > 0, req.effort);
   const win = process.platform === "win32";
   const child = spawn(win ? winQuote(bin) : bin, win ? args.map(winQuote) : args, {
     cwd: opts.cwd || dir,
