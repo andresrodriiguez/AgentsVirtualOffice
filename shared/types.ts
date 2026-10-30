@@ -43,6 +43,8 @@ export interface Agent {
   manager?: boolean;
   /** Sólo Claude Code: correo por IMAP (p. ej. Zoho) en solo lectura y borradores; se configura con scripts/correo-config.mjs. */
   imap?: boolean;
+  /** Sólo Claude Code: Google Calendar de su cuenta (ver, crear y editar eventos; no borra ni responde invitaciones). */
+  calendar?: boolean;
   /** Carpeta de trabajo propia; si falta, se usa la de Ajustes. */
   workspace?: string;
   look?: Look;

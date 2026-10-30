@@ -212,6 +212,12 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
         </label>
         {provider?.kind === "claude-code" && (
           <label className="check pc-toggle">
+            <input type="checkbox" checked={!!draft.calendar} onChange={(e) => set("calendar", e.target.checked)} />
+            📅 Puede usar Google Calendar de su cuenta (ve la agenda; crea eventos si le confirmas)
+          </label>
+        )}
+        {provider?.kind === "claude-code" && (
+          <label className="check pc-toggle">
             <input type="checkbox" checked={!!draft.imap} onChange={(e) => set("imap", e.target.checked)} />
             ✉ Correo por IMAP (Zoho u otro; lee y deja borradores; requiere configurarlo en la PC)
           </label>

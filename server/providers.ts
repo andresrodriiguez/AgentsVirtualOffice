@@ -55,6 +55,8 @@ export interface ChatRequest {
   mail?: boolean;
   /** Sólo Claude Code: archivo de configuración MCP del correo IMAP de este agente. */
   imapConfig?: string;
+  /** Sólo Claude Code: habilita el conector de Google Calendar de la cuenta. */
+  calendar?: boolean;
 }
 
 export async function* parseSSE(
@@ -326,6 +328,11 @@ export const GMAIL_TOOLS = [
   "update_draft",
 ].map((t) => `mcp__claude_ai_Gmail__${t}`);
 
+// Calendario: ver, buscar, crear y editar eventos. Borrar y responder invitaciones no se habilitan.
+export const CALENDAR_TOOLS = ["list_calendars", "list_events", "get_event", "search_events", "suggest_time", "create_event", "update_event"].map(
+  (t) => `mcp__claude_ai_Google_Calendar__${t}`,
+);
+
 export const IMAP_TOOLS = ["buscar_correos", "leer_correo", "listar_carpetas", "crear_borrador"].map((t) => `mcp__correo__${t}`);
 
 export function claudeCodeArgs(
@@ -337,6 +344,7 @@ export function claudeCodeArgs(
   effort = "",
   mail = false,
   imapConfig = "",
+  calendar = false,
 ): string[] {
   const args = [
     "-p",
@@ -355,9 +363,9 @@ export function claudeCodeArgs(
     tools.join(","),
   ];
   // Por defecto no se carga ningún conector (cuestan contexto y dan acceso de más); con `mail` sólo Gmail.
-  if (!mail) args.push("--strict-mcp-config");
+  if (!mail && !calendar) args.push("--strict-mcp-config");
   if (imapConfig) args.push("--mcp-config", imapConfig);
-  const allowed = [...tools, ...(mail ? GMAIL_TOOLS : []), ...(imapConfig ? IMAP_TOOLS : [])];
+  const allowed = [...tools, ...(mail ? GMAIL_TOOLS : []), ...(imapConfig ? IMAP_TOOLS : []), ...(calendar ? CALENDAR_TOOLS : [])];
   if (allowed.length) args.push("--allowedTools", allowed.join(","));
   if (acceptEdits) args.push("--permission-mode", "acceptEdits");
   if (model && model !== "demo") args.push("--model", model);
@@ -411,7 +419,7 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
   await writeFile(systemFile, req.system, "utf8");
   const opts = req.claudeCode ?? { tools: [] };
   const media = lastMedia(req.messages);
-  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits, media.length > 0, req.effort, req.mail, req.imapConfig);
+  const args = claudeCodeArgs(req.model, systemFile, opts.tools, opts.acceptEdits, media.length > 0, req.effort, req.mail, req.imapConfig, req.calendar);
   const win = process.platform === "win32";
   const child = spawn(win ? winQuote(bin) : bin, win ? args.map(winQuote) : args, {
     cwd: opts.cwd || dir,
