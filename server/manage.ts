@@ -1,7 +1,7 @@
 import type { Agent } from "../shared/types.ts";
 
 export interface ManageAction {
-  accion: "crear" | "editar" | "borrar" | "nuevo_hilo";
+  accion: "crear" | "editar" | "borrar" | "nuevo_hilo" | "comando";
   /** Id o nombre de la persona (editar y borrar). */
   quien?: string;
   [campo: string]: unknown;
@@ -16,7 +16,8 @@ const EDITABLE = ["name", "role", "prompt", "model", "effort", ...SENSITIVE];
 
 export function needsApproval(a: ManageAction): boolean {
   if (a.accion === "borrar") return true;
-  if (a.accion === "nuevo_hilo") return false;
+  // "comando" no pasa por aquí: cada comando lo confirma Andrés con el permiso de ejecutar comandos.
+  if (a.accion === "nuevo_hilo" || a.accion === "comando") return false;
   return SENSITIVE.some((k) => a[k] !== undefined);
 }
 
@@ -25,6 +26,7 @@ export function describeAction(a: ManageAction, agents: Agent[]): string {
   const fields = EDITABLE.filter((k) => a[k] !== undefined).map((k) => k);
   if (a.accion === "borrar") return `Borrar a ${who}`;
   if (a.accion === "nuevo_hilo") return `Abrir hilo nuevo con ${who}`;
+  if (a.accion === "comando") return `Ejecutar: ${String(a.comando ?? "").slice(0, 120)}`;
   if (a.accion === "crear") return `Crear a ${who}`;
   return `Editar a ${who}${fields.length ? ` (${fields.join(", ")})` : ""}`;
 }
@@ -96,7 +98,7 @@ export class ManageBlockFilter {
   private take(raw: string): void {
     try {
       const v = JSON.parse(raw.trim());
-      if (v && typeof v === "object" && ["crear", "editar", "borrar", "nuevo_hilo"].includes(v.accion)) this.actions.push(v as ManageAction);
+      if (v && typeof v === "object" && ["crear", "editar", "borrar", "nuevo_hilo", "comando"].includes(v.accion)) this.actions.push(v as ManageAction);
       else this.invalid.push("acción desconocida");
     } catch {
       this.invalid.push("JSON inválido");
@@ -183,6 +185,7 @@ Eres el administrador de la oficina: Andrés te da la autoridad para crear y con
 - Borrar: <oficina>{"accion":"borrar","quien":"id o nombre"}</oficina>
 - Abrir hilo nuevo con alguien cuya conversación se alargó (su historial se vacía y el resumen pasa a su memoria): <oficina>{"accion":"nuevo_hilo","quien":"id o nombre","resumen":"…"}</oficina>
 Cambiar de cuenta/proveedor (providerId), dar acceso a la PC (tools), al correo (mail), carpeta de trabajo (workspace), liderazgo o administración, y borrar a alguien: Andrés lo confirma en pantalla antes; pídelo igual sin dudar. Enviar correos o tocar archivos no es parte de esto y sigue sujeto a los permisos de cada herramienta.
+Controlar la PC de Andrés (Windows, cmd.exe): <oficina>{"accion":"comando","comando":"start \"\" spotify:"}</oficina>. Cada comando le aparece a Andrés para que lo apruebe y luego ves el resultado en tu mensaje. Sin entrada interactiva y con límite de 120 s; una acción por comando. Ejemplos: abrir apps (start "" nombre, start "" https://…, start "" spotify:), ver procesos (tasklist), cerrar uno (taskkill /im nombre.exe), espacio en disco (wmic logicaldisk get caption,freespace,size), limpiar temporales (del /q /f /s "%TEMP%\*"). Antes de borrar algo, muestra primero qué vas a borrar (dir) y qué espacio liberarás. Nunca formatees, toques el registro ni borres fuera de temporales/papelera sin que Andrés lo pida con esas palabras.
 Proveedores disponibles: claude-code (cuenta por defecto), claude-misterloans, claude-cala. Al crear una persona sin proveedor usa el tuyo. Explica en una línea qué vas a cambiar y por qué.
 Equipo actual:
 ${roster}`;

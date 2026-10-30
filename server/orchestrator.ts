@@ -250,9 +250,22 @@ function withExtras(message: string, extras?: Extras): string {
 ${extras.extra}` : message;
 }
 
-async function runManageActions(ctx: RunContext, agent: Agent, actions: ManageAction[]): Promise<string[]> {
+async function runManageActions(ctx: RunContext, agent: Agent, actions: ManageAction[], settings: Settings): Promise<string[]> {
   const lines: string[] = [];
   for (const action of actions) {
+    if (action.accion === "comando") {
+      const command = typeof action.comando === "string" ? action.comando.trim() : "";
+      if (!command) {
+        lines.push("✕ Comando vacío");
+        continue;
+      }
+      const result = await runToolCall(
+        { runId: ctx.runId, agentId: agent.id, settings, permissions: ctx.permissions, emit: ctx.emit, commandTimeoutMs: ctx.commandTimeoutMs },
+        { name: "run_command", arguments: JSON.stringify({ command }) },
+      );
+      lines.push(`${result.ok ? "✓" : "✕"} \`${command.slice(0, 120)}\`\n${result.output.trim().slice(0, 1500)}`);
+      continue;
+    }
     const label = describeAction(action, ctx.office.agents);
     if (action.accion !== "crear" && !findAgent(ctx.office.agents, action.quien)) {
       lines.push(`✕ ${label}: no encuentro a esa persona`);
@@ -365,7 +378,7 @@ async function runAgent(
       }
     }
     if (boss && ctx.manage) {
-      const done = await runManageActions(ctx, agent, boss.actions);
+      const done = await runManageActions(ctx, agent, boss.actions, settings);
       const lines = [...done, ...boss.invalid.map((e) => `✕ No pude leer una acción (${e})`)];
       if (lines.length) say(`${text && !text.endsWith("\n") ? "\n\n" : ""}${lines.join("\n")}`);
     }
