@@ -5,12 +5,13 @@ import { ActivityPanel, type Activity } from "./components/ActivityPanel.tsx";
 import { ChatPanel } from "./components/ChatPanel.tsx";
 import { type PendingPermission, PermissionModal } from "./components/PermissionModal.tsx";
 import { ProvidersEditor } from "./components/ProvidersEditor.tsx";
+import { TasksEditor } from "./components/TasksEditor.tsx";
 import { TeamEditor } from "./components/TeamEditor.tsx";
 import { OfficeEngine } from "./office/engine.ts";
 import { OfficeCanvas } from "./office/OfficeCanvas.tsx";
 import { type Run, reduceRuns } from "./runs.ts";
 
-type Tab = "office" | "team" | "models";
+type Tab = "office" | "team" | "tasks" | "models";
 
 export function App() {
   const engine = useMemo(() => new OfficeEngine(), []);
@@ -81,6 +82,9 @@ export function App() {
           <button className={tab === "team" ? "on" : ""} onClick={() => setTab("team")}>
             👥 Equipo <em>{office.agents.length}</em>
           </button>
+          <button className={tab === "tasks" ? "on" : ""} onClick={() => setTab("tasks")}>
+            ⏰ Tareas
+          </button>
           <button className={tab === "models" ? "on" : ""} onClick={() => setTab("models")}>
             🔌 Modelos
           </button>
@@ -140,6 +144,7 @@ export function App() {
         </main>
       )}
       {tab === "team" && <TeamEditor office={office} looks={looks} />}
+      {tab === "tasks" && <TasksEditor office={office} />}
       {tab === "models" && <ProvidersEditor office={office} />}
       {pending.length > 0 && (
         <PermissionModal

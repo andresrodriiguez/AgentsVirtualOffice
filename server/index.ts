@@ -7,6 +7,7 @@ import type { Agent, Appearance, Layout, Look, OfficeEvent, PermissionDecision, 
 import { generateLookImage, LOOK_FILE_RE, LOOK_MIME, lookFileFromSrc, lookFileName } from "./looks.ts";
 import { AgentMemory } from "./memory.ts";
 import { runMessage } from "./orchestrator.ts";
+import { Tasks } from "./schedule.ts";
 import { actionBody, findAgent, type ManageAction } from "./manage.ts";
 import { AttachmentError, type Prepared, prepareAttachments } from "./attachments.ts";
 import { UsageLog } from "./usage.ts";
@@ -253,6 +254,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   const looksDir = join(dataDir, "looks");
   const memory = new AgentMemory(join(dataDir, "agentes"));
   const usage = new UsageLog(join(dataDir, "uso.jsonl"));
+  const tasks = new Tasks(join(dataDir, "tareas.json"));
   const clients = new Set<ServerResponse>();
   const permissions = new Permissions(options.permissionTimeoutMs);
   const drawing = new Set<string>();
@@ -603,6 +605,42 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         return;
       }
 
+      case "GET tasks":
+        return sendJson(res, 200, tasks.all());
+
+      case "POST tasks": {
+        try {
+          return sendJson(res, 201, tasks.add(asObject(await readJson(req))));
+        } catch (err) {
+          if (err instanceof HttpError) throw err;
+          throw new HttpError(400, err instanceof Error ? err.message : String(err));
+        }
+      }
+
+      case "PUT tasks/:id": {
+        let updated;
+        try {
+          updated = tasks.update(id!, asObject(await readJson(req)));
+        } catch (err) {
+          if (err instanceof HttpError) throw err;
+          throw new HttpError(400, err instanceof Error ? err.message : String(err));
+        }
+        if (!updated) throw new HttpError(404, "Tarea no encontrada");
+        return sendJson(res, 200, updated);
+      }
+
+      case "DELETE tasks/:id": {
+        if (!tasks.remove(id!)) throw new HttpError(404, "Tarea no encontrada");
+        return sendJson(res, 200, { ok: true });
+      }
+
+      case "POST tasks/:id/run": {
+        const task = tasks.get(id!);
+        if (!task) throw new HttpError(404, "Tarea no encontrada");
+        await runTask(task);
+        return sendJson(res, 202, { ok: true });
+      }
+
       case "GET usage":
         return sendJson(res, 200, usage.summary());
 
@@ -653,6 +691,27 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     return action.accion === "crear" ? `Creé a ${name}` : action.accion === "borrar" ? `Borré a ${target?.name}` : `Actualicé a ${name}`;
   };
 
+  // Las tareas programadas entran por la misma puerta que un mensaje tuyo: se ven en el chat y gastan como cualquier pedido.
+  const runTask = async (task: { text: string; target: string }) => {
+    const addr = server.address();
+    const base = `http://${host}:${typeof addr === "object" && addr ? addr.port : port}`;
+    const target = task.target && store.office.agents.some((a) => a.id === task.target) ? task.target : null;
+    const res = await fetch(`${base}/api/message`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: task.text, target }),
+    });
+    if (!res.ok) throw new HttpError(res.status, `No se pudo lanzar la tarea (${res.status})`);
+  };
+  const scheduler = setInterval(() => {
+    const now = new Date();
+    for (const task of tasks.due(now)) {
+      tasks.markRun(task.id, now);
+      runTask(task).catch((err) => console.error("[tarea]", task.name, err));
+    }
+  }, 30_000);
+  scheduler.unref();
+
   const server = createServer((req, res) => {
     handle(req, res).catch((err) => {
       const status = err instanceof HttpError ? err.status : 500;
@@ -682,6 +741,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     close: () =>
       new Promise<void>((ok) => {
         clearInterval(heartbeat);
+        clearInterval(scheduler);
         permissions.denyAll();
         for (const res of clients) res.end();
         clients.clear();

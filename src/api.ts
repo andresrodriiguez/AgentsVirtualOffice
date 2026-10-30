@@ -12,6 +12,17 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   return data as T;
 }
 
+export interface Task {
+  id: string;
+  name: string;
+  target: string;
+  text: string;
+  time: string;
+  days: number[];
+  enabled: boolean;
+  lastRun?: string;
+}
+
 export interface Upload {
   name: string;
   mime: string;
@@ -40,6 +51,11 @@ export const api = {
   reset: (agentId?: string) => call<unknown>("POST", "/api/reset", { agentId }),
   permission: (callId: string, decision: PermissionDecision) => call<unknown>("POST", "/api/permission", { callId, decision }),
   saveSettings: (s: Partial<Settings>) => call<unknown>("PUT", "/api/settings", s),
+  tasks: () => call<Task[]>("GET", "/api/tasks"),
+  createTask: (t: Partial<Task>) => call<Task>("POST", "/api/tasks", t),
+  updateTask: (id: string, t: Partial<Task>) => call<Task>("PUT", `/api/tasks/${id}`, t),
+  deleteTask: (id: string) => call<unknown>("DELETE", `/api/tasks/${id}`),
+  runTask: (id: string) => call<unknown>("POST", `/api/tasks/${id}/run`),
   usage: () => call<Record<string, UsageTotal>>("GET", "/api/usage"),
   memory: (id: string) => call<{ text: string }>("GET", `/api/agents/${id}/memory`),
   saveMemory: (id: string, text: string) => call<{ text: string }>("PUT", `/api/agents/${id}/memory`, { text }),

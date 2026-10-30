@@ -1241,3 +1241,35 @@ details summary {
 .act-code .del {
   color: var(--red);
 }
+
+.task {
+  display: grid;
+  gap: 8px;
+}
+
+.task.off {
+  opacity: 0.65;
+}
+
+.task-head,
+.task-days,
+.task-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.task-head input:first-child {
+  flex: 1;
+  min-width: 140px;
+}
+
+.task-days button {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.task-days select {
+  margin-left: auto;
+}
