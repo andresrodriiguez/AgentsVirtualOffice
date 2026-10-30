@@ -140,6 +140,10 @@ function agentPatch(body: Record<string, unknown>): AgentPatch {
     if (typeof body.tools !== "boolean") throw new HttpError(400, '"tools" tiene que ser boolean');
     patch.tools = body.tools;
   }
+  if (body.mail !== undefined) {
+    if (typeof body.mail !== "boolean") throw new HttpError(400, '"mail" tiene que ser boolean');
+    patch.mail = body.mail;
+  }
   if (body.look !== undefined) patch.look = validLook(body.look);
   if (body.appearance !== undefined) patch.appearance = asObject(body.appearance) as unknown as Appearance;
   return patch;

@@ -37,6 +37,8 @@ export interface Agent {
   seat: number;
   lead?: boolean;
   tools?: boolean;
+  /** Sólo Claude Code: puede usar el conector de Gmail de su cuenta, en solo lectura y borradores. */
+  mail?: boolean;
   /** Carpeta de trabajo propia; si falta, se usa la de Ajustes. */
   workspace?: string;
   look?: Look;
