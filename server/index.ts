@@ -7,11 +7,14 @@ import type { Agent, Appearance, Layout, Look, OfficeEvent, PermissionDecision, 
 import { generateLookImage, LOOK_FILE_RE, LOOK_MIME, lookFileFromSrc, lookFileName } from "./looks.ts";
 import { AgentMemory } from "./memory.ts";
 import { runMessage } from "./orchestrator.ts";
+import { AttachmentError, type Prepared, prepareAttachments } from "./attachments.ts";
 import { UsageLog } from "./usage.ts";
 import { defaultSettings, publicOffice, Store } from "./store.ts";
 import { Permissions, resolvePath } from "./tools.ts";
 
 const MAX_BODY = 1024 * 1024;
+// Los mensajes llevan adjuntos en base64.
+const MAX_MESSAGE_BODY = 60 * 1024 * 1024;
 const HEARTBEAT_MS = 15_000;
 const PROVIDER_KINDS: ProviderKind[] = ["anthropic", "openai", "claude-code", "demo"];
 const DECISIONS: PermissionDecision[] = ["allow", "always", "deny"];
@@ -76,12 +79,12 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.end(data);
 }
 
-async function readJson(req: IncomingMessage): Promise<unknown> {
+async function readJson(req: IncomingMessage, max = MAX_BODY): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += (chunk as Buffer).length;
-    if (size > MAX_BODY) throw new HttpError(413, "Body demasiado grande (máx 1MB)");
+    if (size > max) throw new HttpError(413, `Body demasiado grande (máx ${Math.round(max / 1024 / 1024)}MB)`);
     chunks.push(chunk as Buffer);
   }
   if (size === 0) return {};
@@ -119,7 +122,7 @@ function validLook(value: unknown): Look | null {
 
 function agentPatch(body: Record<string, unknown>): AgentPatch {
   const patch: AgentPatch = {};
-  for (const key of ["name", "role", "prompt", "providerId", "model", "workspace"] as const) {
+  for (const key of ["name", "role", "prompt", "providerId", "model", "effort", "workspace"] as const) {
     const v = optString(body, key);
     if (v !== undefined) patch[key] = v;
   }
@@ -437,8 +440,15 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
       }
 
       case "POST message": {
-        const body = asObject(await readJson(req));
-        const text = typeof body.text === "string" ? body.text.trim() : "";
+        const body = asObject(await readJson(req, MAX_MESSAGE_BODY));
+        let attachments: Prepared;
+        try {
+          attachments = prepareAttachments(body.files);
+        } catch (err) {
+          if (err instanceof AttachmentError) throw new HttpError(400, err.message);
+          throw err;
+        }
+        const text = (typeof body.text === "string" ? body.text.trim() : "") || (attachments.info.length ? "Revisa los adjuntos." : "");
         if (!text) throw new HttpError(400, '"text" es obligatorio');
         const target = body.target ?? null;
         if (target !== null && typeof target !== "string") throw new HttpError(400, '"target" tiene que ser string o null');
@@ -448,6 +458,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         settings();
         runMessage(structuredClone(office), text, target || null, broadcast, {
           runId,
+          attachments,
           history: store.history,
           memory,
           usage,

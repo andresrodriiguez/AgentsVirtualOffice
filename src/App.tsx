@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { OfficeEvent, PublicOffice } from "../shared/types.ts";
 import { api, useOfficeStream } from "./api.ts";
 import { ChatPanel } from "./components/ChatPanel.tsx";
@@ -36,6 +36,15 @@ export function App() {
     [engine],
   );
   const live = useOfficeStream(onEvent);
+
+  useEffect(() => {
+    if (!target) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTarget(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [target]);
 
   const tokens = runs.reduce((n, r) => n + r.entries.reduce((m, e) => m + e.tokens, 0), 0);
   const working = runs.some((r) => !r.done);
@@ -87,18 +96,13 @@ export function App() {
       </header>
 
       {tab === "office" && (
-        <main className="main">
+        <main className={`main ${target ? "focus" : ""}`}>
           <section className="panel stage">
             <header className="panel-head">
               <span>
                 <i className={`dot ${working ? "on" : ""}`} /> Oficina
               </span>
               <div className="stage-actions">
-                {target && (
-                  <button className="ghost" onClick={() => setTarget(null)}>
-                    Hablando con {office.agents.find((a) => a.id === target)?.name} ✕
-                  </button>
-                )}
                 <button className={`ghost ${editLayout ? "on" : ""}`} onClick={() => setEditLayout((v) => !v)}>
                   {editLayout ? "✓ Listo" : "✥ Escritorios"}
                 </button>
@@ -116,7 +120,7 @@ export function App() {
               <span>
                 ● {office.agents.length - busyAgents.size}/{office.agents.length} libres
               </span>
-              <span>Clic en alguien para hablarle directo</span>
+              <span>{target ? "Clic en otra persona para cambiar" : "Clic en alguien para hablarle directo"}</span>
             </footer>
           </section>
           <ChatPanel
@@ -125,8 +129,8 @@ export function App() {
             target={target}
             setTarget={setTarget}
             busy={working}
-            onSend={async (text) => {
-              await api.send(text, target);
+            onSend={async (text, files) => {
+              await api.send(text, target, files);
             }}
           />
         </main>

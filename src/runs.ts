@@ -1,4 +1,4 @@
-import type { OfficeEvent, ToolName } from "../shared/types.ts";
+import type { AttachmentInfo, OfficeEvent, ToolName } from "../shared/types.ts";
 
 export type Step =
   | { kind: "text"; text: string }
@@ -17,6 +17,7 @@ export interface Run {
   id: string;
   text: string;
   target: string | null;
+  attachments: AttachmentInfo[];
   note: string | null;
   routing: boolean;
   entries: RunEntry[];
@@ -47,7 +48,7 @@ function ensureEntry(entries: RunEntry[], agentId: string): RunEntry[] {
 
 export function reduceRuns(runs: Run[], ev: OfficeEvent): Run[] {
   if (ev.type === "run_start")
-    return [...runs.slice(-49), { id: ev.runId, text: ev.text, target: ev.target, note: null, routing: false, entries: [], done: false }];
+    return [...runs.slice(-49), { id: ev.runId, text: ev.text, target: ev.target, attachments: ev.attachments ?? [], note: null, routing: false, entries: [], done: false }];
   if (!("runId" in ev)) return runs;
   return runs.map((r) => {
     if (r.id !== ev.runId) return r;
