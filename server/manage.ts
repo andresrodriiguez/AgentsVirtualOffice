@@ -172,6 +172,27 @@ export function requestSection(): string {
 Si para tu trabajo necesitas un acceso, permiso, herramienta o que alguien configure algo que tú no puedes (por ejemplo leer un correo, usar la PC, una carpeta, otra cuenta), no lo intentes por tu cuenta: escribe al final de tu respuesta un bloque <solicitud>qué necesitas, para qué y por qué</solicitud>. Mate se lo plantea a Andrés y, si Andrés lo aprueba, te lo configura. Dile a Andrés en una línea que lo pediste.`;
 }
 
+export const TEAM_MEMORY_ID = "equipo";
+const TEAM_MEMORY_LIMIT = 3000;
+
+export function teamSection(memory: string, canDelegate: boolean, peers: string): string {
+  const shown = memory.length > TEAM_MEMORY_LIMIT ? `[…]\n${memory.slice(-TEAM_MEMORY_LIMIT)}` : memory;
+  return `
+
+## Memoria del equipo
+Hay una libreta común que leen todos los agentes: datos de las empresas de Andrés, clientes, reglas y acuerdos que todos deben conocer. Para añadir algo útil para todos (no para ti sola/o), escribe un bloque <memoria_equipo>…</memoria_equipo> con notas breves; nunca contraseñas ni claves. Lo que sea sólo tuyo va en tu memoria personal.
+<memoria_equipo_actual>
+${shown.trim() || "(vacía)"}
+</memoria_equipo_actual>${
+    canDelegate
+      ? `
+
+## Pasarle trabajo a un compañero
+Si una parte del trabajo le corresponde claramente a otro, puedes pasársela directo sin esperar a Andrés: escribe <para>nombre: qué debe hacer, con el contexto necesario</para>. El compañero lo hace y el resultado le llega a Andrés en el chat. Compañeros: ${peers}. Úsalo sólo si de verdad es de su área; no encadenes pedidos.`
+      : ""
+  }`;
+}
+
 export const THREAD_AFTER_CHARS = 12000;
 
 export function threadSection(historyChars: number): string {

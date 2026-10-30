@@ -7,7 +7,7 @@ import { defaultSettings, History } from "./store.ts";
 import { AgentMemory, MemoryBlockFilter, memorySection } from "./memory.ts";
 import type { UsageLog } from "./usage.ts";
 import { Permissions, runToolCall, TOOL_SPECS } from "./tools.ts";
-import { actionBody, describeAction, findAgent, ManageBlockFilter, manageSection, needsApproval, ThreadBlockFilter, threadSection, requestSection, type ManageAction } from "./manage.ts";
+import { actionBody, describeAction, findAgent, ManageBlockFilter, manageSection, needsApproval, ThreadBlockFilter, threadSection, requestSection, teamSection, TEAM_MEMORY_ID, type ManageAction } from "./manage.ts";
 
 export const MAX_ASSIGNMENTS = 4;
 export const MAX_TOOL_ITERATIONS = 25;
@@ -29,6 +29,8 @@ export interface RunOptions {
   manage?: (action: ManageAction) => Promise<string>;
   /** Pasa a Mate una solicitud de acceso que hizo otro agente. */
   askLead?: (from: Agent, request: string) => void;
+  /** Un agente le pasa una tarea directa a otro (sin encadenar más). */
+  delegate?: (from: Agent, to: string, task: string) => void;
 }
 
 interface RunContext {
@@ -43,6 +45,7 @@ interface RunContext {
   commandTimeoutMs?: number;
   manage?: (action: ManageAction) => Promise<string>;
   askLead?: (from: Agent, request: string) => void;
+  delegate?: (from: Agent, to: string, task: string) => void;
 }
 
 type Emit = (event: OfficeEvent) => void;
@@ -351,11 +354,20 @@ async function runAgent(
       (mail ? MAIL_RULES : "") +
       (admin ? manageSection(office.agents) : "") +
       (!admin && ctx.askLead ? requestSection() : "") +
+      (ctx.memory
+        ? teamSection(
+            await ctx.memory.read(TEAM_MEMORY_ID).catch(() => ""),
+            !!ctx.delegate,
+            office.agents.filter((a) => a.id !== agent.id).map((a) => `${a.name} (${a.role})`).join("; "),
+          )
+        : "") +
       (ctx.memory ? threadSection(history.get(agent.id).reduce((n, m) => n + m.content.length, 0)) : "") +
       (ctx.memory ? memorySection(memory, true) : "");
     const filter = new MemoryBlockFilter();
     const boss = admin ? new ManageBlockFilter() : undefined;
     const thread = ctx.memory ? new ThreadBlockFilter() : undefined;
+    const teamNotes = ctx.memory ? new ThreadBlockFilter("memoria_equipo") : undefined;
+    const handoffs = ctx.delegate ? new ThreadBlockFilter("para") : undefined;
     const asks = !admin && ctx.askLead ? new ThreadBlockFilter("solicitud") : undefined;
     const media = provider.kind === "claude-code" ? (extras?.media ?? []) : [];
     const conv: ConvMessage[] = [...compactHistory(history.get(agent.id)), { role: "user", content: withExtras(message, extras), media }];
@@ -374,6 +386,8 @@ async function runAgent(
         if (chunk.text) {
           let piece = boss ? boss.push(chunk.text) : chunk.text;
           if (asks) piece = asks.push(piece);
+          if (teamNotes) piece = teamNotes.push(piece);
+          if (handoffs) piece = handoffs.push(piece);
           if (thread) piece = thread.push(piece);
           const visible = filter.push(piece);
           if (visible) {
@@ -397,7 +411,7 @@ async function runAgent(
           recordUsage(ctx, agent, provider, "respuesta", chunk.usage);
         }
       }
-      const rest = filter.flush() + (boss?.flush() ?? "") + (asks?.flush() ?? "") + (thread?.flush() ?? "");
+      const rest = filter.flush() + (boss?.flush() ?? "") + (asks?.flush() ?? "") + (teamNotes?.flush() ?? "") + (handoffs?.flush() ?? "") + (thread?.flush() ?? "");
       if (rest) say(rest);
       if (!withTools || toolCalls.length === 0) break;
       if (step >= MAX_TOOL_ITERATIONS) {
@@ -430,6 +444,13 @@ async function runAgent(
     // En el historial quedan sólo los nombres de los adjuntos: reenviarlos enteros en cada llamada sale caro.
     history.push(agent.id, { role: "user", content: message + (extras?.names ?? "") }, { role: "assistant", content: text });
     for (const request of asks?.summaries ?? []) ctx.askLead?.(agent, request);
+    if (teamNotes?.summaries.length && ctx.memory) {
+      await ctx.memory.apply(TEAM_MEMORY_ID, [{ mode: "append", text: teamNotes.summaries.map((n) => `(${agent.name}) ${n}`).join("\n") }]).catch((err) => console.error("[memoria equipo]", err));
+    }
+    for (const h of handoffs?.summaries ?? []) {
+      const i = h.indexOf(":");
+      if (i > 0) ctx.delegate?.(agent, h.slice(0, i).trim(), h.slice(i + 1).trim());
+    }
     if (thread?.summaries.length && ctx.memory) {
       await ctx.memory.apply(agent.id, [{ mode: "append", text: `Resumen del hilo anterior: ${thread.summaries.join("\n")}` }]).catch((err) => console.error("[hilo]", err));
       history.reset(agent.id);
@@ -462,6 +483,7 @@ export async function runMessage(
     commandTimeoutMs: options.commandTimeoutMs,
     manage: options.manage,
     askLead: options.askLead,
+    delegate: options.delegate,
   };
   const att = options.attachments;
   emit({ type: "run_start", runId, text, target, ...(att?.info.length ? { attachments: att.info } : {}) });

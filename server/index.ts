@@ -476,6 +476,18 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
           runId,
           attachments,
           manage: (action) => manageOffice(action),
+          delegate: (from, to, task) => {
+            const peer = findAgent(store.office.agents, to);
+            if (!peer || peer.id === from.id || !task) return;
+            runMessage(structuredClone(store.office), `Tarea que te pasa ${from.name} (${from.role}): ${task}`, peer.id, broadcast, {
+              history: store.history,
+              memory,
+              usage,
+              permissions,
+              commandTimeoutMs: options.commandTimeoutMs,
+              manage: (action) => manageOffice(action),
+            }).catch((err) => console.error("[delegar]", err));
+          },
           askLead: (from, request) => {
             const lead = store.office.agents.find((a) => a.lead);
             if (!lead || lead.id === from.id) return;
