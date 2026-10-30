@@ -276,7 +276,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
   };
 
   const heartbeat = setInterval(() => {
-    for (const res of clients) res.write(": ping\n\n");
+    // Un evento real (no un comentario SSE) para que el navegador pueda notar si la conexión se colgó.
+    for (const res of clients) send(res, { type: "ping" });
   }, HEARTBEAT_MS);
   heartbeat.unref();
 

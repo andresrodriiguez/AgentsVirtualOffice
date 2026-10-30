@@ -52,17 +52,46 @@ export function useOfficeStream(onEvent: (ev: OfficeEvent) => void) {
   const handler = useRef(onEvent);
   handler.current = onEvent;
   useEffect(() => {
-    const es = new EventSource("/api/events");
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
-    es.onmessage = (m) => {
-      try {
-        handler.current(JSON.parse(m.data) as OfficeEvent);
-      } catch {
-        return;
-      }
+    let es: EventSource | null = null;
+    let lastSeen = Date.now();
+    let closed = false;
+    const open = () => {
+      es?.close();
+      lastSeen = Date.now();
+      const next = new EventSource("/api/events");
+      es = next;
+      next.onopen = () => setConnected(true);
+      next.onerror = () => setConnected(false);
+      next.onmessage = (m) => {
+        lastSeen = Date.now();
+        setConnected(true);
+        try {
+          handler.current(JSON.parse(m.data) as OfficeEvent);
+        } catch {
+          return;
+        }
+      };
     };
-    return () => es.close();
+    open();
+    // El servidor manda un ping cada 15 s. Si pasa mucho sin nada (conexión colgada, pestaña dormida,
+    // el PC suspendido) se reconecta sola, en vez de obligarte a recargar la página.
+    const watchdog = setInterval(() => {
+      if (!closed && Date.now() - lastSeen > 40_000) open();
+    }, 5_000);
+    const wake = () => {
+      if (!closed && (document.visibilityState === "visible" || document.visibilityState === undefined) && Date.now() - lastSeen > 20_000) open();
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", open);
+    window.addEventListener("focus", wake);
+    return () => {
+      closed = true;
+      clearInterval(watchdog);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", open);
+      window.removeEventListener("focus", wake);
+      es?.close();
+    };
   }, []);
   return connected;
 }

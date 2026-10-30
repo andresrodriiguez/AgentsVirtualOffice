@@ -129,4 +129,5 @@ export type OfficeEvent =
   | { type: "tool_result"; runId: string; agentId: string; callId: string; ok: boolean; output: string }
   | { type: "look_progress"; agentId: string; status: "drawing" | "done" | "error"; error?: string }
   | { type: "run_done"; runId: string }
+  | { type: "ping" }
   | { type: "office"; office: PublicOffice };
