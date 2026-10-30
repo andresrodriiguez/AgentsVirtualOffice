@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { OfficeEvent, PublicOffice } from "../shared/types.ts";
 import { api, useOfficeStream } from "./api.ts";
-import { SkyBand, useMiami, WeatherChip } from "./components/Azotea.tsx";
+import { SkyBand, useValencia, WeatherChip } from "./components/Azotea.tsx";
 import { ActivityPanel, type Activity } from "./components/ActivityPanel.tsx";
 import { ChatPanel } from "./components/ChatPanel.tsx";
 import { type PendingPermission, PermissionModal } from "./components/PermissionModal.tsx";
@@ -24,7 +24,7 @@ export function App() {
   const [activity, setActivity] = useState<Activity[]>([]);
   const [pending, setPending] = useState<PendingPermission[]>([]);
   const [macaw, setMacaw] = useState<{ agentId: string; key: number } | null>(null);
-  const miami = useMiami();
+  const clima = useValencia();
   const [looks, setLooks] = useState<Record<string, { status: "drawing" | "done" | "error"; error?: string }>>({});
 
   const onEvent = useCallback(
@@ -84,7 +84,7 @@ export function App() {
             <b>{office.name}</b>
             <small>La oficina de Andrés</small>
           </div>
-          <WeatherChip {...miami} />
+          <WeatherChip {...clima} />
           <span className={`live ${live ? "" : "off"}`}>● {live ? "LIVE" : "OFFLINE"}</span>
         </div>
         <nav>
@@ -127,10 +127,10 @@ export function App() {
                 </button>
               </div>
             </header>
-            <SkyBand {...miami} />
+            <SkyBand {...clima} />
             <OfficeCanvas
               engine={engine}
-              phase={miami.phase}
+              phase={clima.phase}
               macaw={macaw}
               office={office}
               target={target}

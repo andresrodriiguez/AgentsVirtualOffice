@@ -1288,7 +1288,7 @@ details summary {
   max-height: 52vh;
 }
 
-/* ---------- La Azotea: cielo, clima y guacamaya ---------- */
+/* ---------- La Azotea: cielo de Valencia, clima y guacamaya ---------- */
 .weather-chip {
   font-size: 12px;
   color: var(--text);
@@ -1361,7 +1361,10 @@ details summary {
 .flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: flash 7s infinite; }
 @keyframes flash { 0%, 92%, 96%, 100% { opacity: 0; } 94%, 98% { opacity: 0.55; } }
 
-.skyline { position: absolute; left: 0; right: 0; bottom: 8px; width: 100%; height: 34px; fill: #0f2a3a; }
+.hills { position: absolute; left: 0; right: 0; bottom: 8px; width: 100%; height: 52px; fill: #3f7a5a; opacity: 0.85; }
+.sky-dawn .hills, .sky-sunset .hills { fill: #5a4a6a; }
+.sky-night .hills { fill: #0c1f2a; }
+.skyline { position: absolute; left: 0; right: 0; bottom: 8px; width: 100%; height: 26px; fill: #0f2a3a; }
 .sky-day .skyline { fill: #2b5a72; }
 .sky-night .skyline { fill: #050d18; filter: drop-shadow(0 0 1px #f4c35a); }
 .sea { position: absolute; left: 0; right: 0; bottom: 0; height: 9px; background: linear-gradient(#2ec4b6, #138a80); }
