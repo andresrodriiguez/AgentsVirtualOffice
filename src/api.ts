@@ -12,6 +12,14 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   return data as T;
 }
 
+export interface UsageTotal {
+  calls: number;
+  input: number;
+  output: number;
+  cached: number;
+  costUsd: number;
+}
+
 export const api = {
   office: () => call<PublicOffice>("GET", "/api/office"),
   createAgent: (a: Partial<Agent>) => call<Agent>("POST", "/api/agents", a),
@@ -25,6 +33,9 @@ export const api = {
   reset: (agentId?: string) => call<unknown>("POST", "/api/reset", { agentId }),
   permission: (callId: string, decision: PermissionDecision) => call<unknown>("POST", "/api/permission", { callId, decision }),
   saveSettings: (s: Partial<Settings>) => call<unknown>("PUT", "/api/settings", s),
+  usage: () => call<Record<string, UsageTotal>>("GET", "/api/usage"),
+  memory: (id: string) => call<{ text: string }>("GET", `/api/agents/${id}/memory`),
+  saveMemory: (id: string, text: string) => call<{ text: string }>("PUT", `/api/agents/${id}/memory`, { text }),
   drawLook: (id: string, description: string) => call<unknown>("POST", `/api/agents/${id}/look`, { description }),
   deleteLook: (id: string) => call<unknown>("DELETE", `/api/agents/${id}/look`),
 };

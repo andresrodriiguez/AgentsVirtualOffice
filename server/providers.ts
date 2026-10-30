@@ -28,7 +28,7 @@ export type ConvMessage =
 
 export interface ChatChunk {
   text?: string;
-  usage?: { input: number; output: number };
+  usage?: { input: number; output: number; cached?: number; costUsd?: number };
   toolCalls?: ToolCall[];
 }
 
@@ -308,6 +308,10 @@ export function claudeCodeArgs(model: string, systemFile: string, tools: string[
     "--include-partial-messages",
     "--no-session-persistence",
     "--strict-mcp-config",
+    // Sin skills ni comandos: son tokens de contexto que estos agentes no usan.
+    "--disable-slash-commands",
+    "--setting-sources",
+    "project",
     "--system-prompt-file",
     systemFile,
     "--tools",
@@ -330,6 +334,11 @@ export function claudeCodeEnv(provider: Provider, base: NodeJS.ProcessEnv = proc
   const env = { ...base };
   delete env.ANTHROPIC_API_KEY;
   delete env.ANTHROPIC_AUTH_TOKEN;
+  // La memoria de los agentes la lleva la oficina (data/agentes/<id>/memoria.md), no la de Claude Code
+  // ni la de otras sesiones que hereden este proceso.
+  env.CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1";
+  delete env.CLAUDE_MEMORY_STORES;
+  delete env.CLAUDE_COWORK_MEMORY_PATH_OVERRIDE;
   const dir = provider.configDir?.trim();
   if (dir) env.CLAUDE_CONFIG_DIR = dir === "~" || dir.startsWith("~/") || dir.startsWith("~\\") ? join(homedir(), dir.slice(1)) : dir;
   return env;
@@ -378,7 +387,16 @@ async function* streamClaudeCode(req: ChatRequest): AsyncGenerator<ChatChunk> {
       } else if (ev?.type === "content_block_start" && ev.content_block?.type === "tool_use" && !msg.parent_tool_use_id) {
         yield { text: `\n\n_› ${ev.content_block.name}_\n\n` };
       } else if (msg.type === "result") {
-        if (msg.usage) usage = { input: msg.usage.input_tokens ?? 0, output: msg.usage.output_tokens ?? 0 };
+        if (msg.usage) {
+          const u = msg.usage;
+          const cached = u.cache_read_input_tokens ?? 0;
+          usage = {
+            input: (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + cached,
+            output: u.output_tokens ?? 0,
+            cached,
+            costUsd: typeof msg.total_cost_usd === "number" ? msg.total_cost_usd : undefined,
+          };
+        }
         if (msg.is_error) failure = String(msg.result || msg.subtype || "error");
       }
     }

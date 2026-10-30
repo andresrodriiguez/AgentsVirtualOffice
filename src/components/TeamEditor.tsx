@@ -78,6 +78,46 @@ function LookPanel({ agent, office, progress, onError }: { agent: Agent; office:
   );
 }
 
+function MemoryPanel({ agent, onError }: { agent: Agent; onError: (m: string) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const [saved, setSaved] = useState("");
+  const load = () =>
+    api
+      .memory(agent.id)
+      .then((m) => {
+        setText(m.text);
+        setSaved(m.text);
+      })
+      .catch((e) => onError((e as Error).message));
+  return (
+    <details onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && load()}>
+      <summary>Memoria {text ? `· ${text.length} caracteres` : ""}</summary>
+      <p className="hint">
+        Lo que {agent.name} recuerda entre conversaciones. Él mismo la va escribiendo; puedes corregirla aquí. Se guarda en{" "}
+        <code>data/agentes/{agent.id}/memoria.md</code>.
+      </p>
+      <textarea rows={8} value={text ?? ""} placeholder="(vacía)" onChange={(e) => setText(e.target.value)} />
+      <div className="card-actions">
+        <span className="spacer" />
+        <button
+          disabled={text === null || text === saved}
+          onClick={() =>
+            api
+              .saveMemory(agent.id, text ?? "")
+              .then((m) => {
+                setText(m.text);
+                setSaved(m.text);
+              })
+              .catch((e) => onError((e as Error).message))
+          }
+        >
+          Guardar memoria
+        </button>
+      </div>
+    </details>
+  );
+}
+
 function AgentCard({ agent, office, progress, onError }: { agent: Agent; office: PublicOffice; progress?: LookProgress[string]; onError: (m: string) => void }) {
   const [draft, setDraft] = useState(agent);
   const [saving, setSaving] = useState(false);
@@ -167,6 +207,7 @@ function AgentCard({ agent, office, progress, onError }: { agent: Agent; office:
             />
           </label>
         )}
+        <MemoryPanel agent={agent} onError={onError} />
         <details open={!!agent.look || progress?.status === "drawing"}>
           <summary>Apariencia {agent.look ? "· dibujada con IA" : "· pixel simple"}</summary>
           <LookPanel agent={agent} office={office} progress={progress} onError={onError} />

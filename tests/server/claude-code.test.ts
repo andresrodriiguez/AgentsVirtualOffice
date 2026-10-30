@@ -19,7 +19,7 @@ describe("claude-code provider", () => {
       if (chunk.usage) usage = chunk.usage;
     }
     expect(text).toBe("eco: hola");
-    expect(usage).toEqual({ input: 7, output: 3 });
+    expect(usage).toMatchObject({ input: 7, output: 3 });
   });
 
   it("fails clearly when the CLI is missing", async () => {
@@ -53,10 +53,13 @@ describe("claude-code provider", () => {
   });
 
   it("picks the account folder and never leaks API keys to the CLI", () => {
-    const base = { PATH: "/bin", ANTHROPIC_API_KEY: "sk-x", ANTHROPIC_AUTH_TOKEN: "t" };
+    const base = { PATH: "/bin", ANTHROPIC_API_KEY: "sk-x", ANTHROPIC_AUTH_TOKEN: "t", CLAUDE_MEMORY_STORES: "[]", CLAUDE_COWORK_MEMORY_PATH_OVERRIDE: "/m" };
     const plain = claudeCodeEnv(CLAUDE_CODE_PROVIDER, base);
     expect(plain.ANTHROPIC_API_KEY).toBeUndefined();
     expect(plain.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(plain.CLAUDE_MEMORY_STORES).toBeUndefined();
+    expect(plain.CLAUDE_COWORK_MEMORY_PATH_OVERRIDE).toBeUndefined();
+    expect(plain.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe("1");
     expect(plain.CLAUDE_CONFIG_DIR).toBeUndefined();
     expect(plain.PATH).toBe("/bin");
     expect(claudeCodeEnv({ ...CLAUDE_CODE_PROVIDER, configDir: "/data/cuenta-a" }, base).CLAUDE_CONFIG_DIR).toBe("/data/cuenta-a");

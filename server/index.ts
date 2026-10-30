@@ -5,7 +5,9 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Agent, Appearance, Layout, Look, OfficeEvent, PermissionDecision, Provider, ProviderKind, Rect, Settings } from "../shared/types.ts";
 import { generateLookImage, LOOK_FILE_RE, LOOK_MIME, lookFileFromSrc, lookFileName } from "./looks.ts";
+import { AgentMemory } from "./memory.ts";
 import { runMessage } from "./orchestrator.ts";
+import { UsageLog } from "./usage.ts";
 import { defaultSettings, publicOffice, Store } from "./store.ts";
 import { Permissions, resolvePath } from "./tools.ts";
 
@@ -233,6 +235,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     options.staticDir !== undefined ? options.staticDir : process.env.NODE_ENV === "production" ? join(ROOT, "dist") : null;
   const store = await Store.open(dataDir);
   const looksDir = join(dataDir, "looks");
+  const memory = new AgentMemory(join(dataDir, "agentes"));
+  const usage = new UsageLog(join(dataDir, "uso.jsonl"));
   const clients = new Set<ServerResponse>();
   const permissions = new Permissions(options.permissionTimeoutMs);
   const drawing = new Set<string>();
@@ -445,6 +449,8 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         runMessage(structuredClone(office), text, target || null, broadcast, {
           runId,
           history: store.history,
+          memory,
+          usage,
           permissions,
           commandTimeoutMs: options.commandTimeoutMs,
         }).catch((err) => {
@@ -556,6 +562,22 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
         });
         res.end(data);
         return;
+      }
+
+      case "GET usage":
+        return sendJson(res, 200, usage.summary());
+
+      case "GET agents/:id/memory": {
+        if (!office.agents.some((a) => a.id === id)) throw new HttpError(404, "Agente no encontrado");
+        return sendJson(res, 200, { text: await memory.read(id!) });
+      }
+
+      case "PUT agents/:id/memory": {
+        if (!office.agents.some((a) => a.id === id)) throw new HttpError(404, "Agente no encontrado");
+        const text = optString(asObject(await readJson(req)), "text");
+        if (text === undefined) throw new HttpError(400, '"text" es obligatorio');
+        await memory.write(id!, text);
+        return sendJson(res, 200, { text: await memory.read(id!) });
       }
 
       case "POST reset": {

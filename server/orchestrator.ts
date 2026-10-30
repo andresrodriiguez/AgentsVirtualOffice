@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Agent, Assignment, ChatMessage, Office, OfficeEvent, Provider, Settings } from "../shared/types.ts";
 import { streamChat, type ChatRequest, type ConvMessage, type ToolCall } from "./providers.ts";
 import { defaultSettings, History } from "./store.ts";
+import { AgentMemory, MemoryBlockFilter, memorySection } from "./memory.ts";
+import type { UsageLog } from "./usage.ts";
 import { Permissions, runToolCall, TOOL_SPECS } from "./tools.ts";
 
 export const MAX_ASSIGNMENTS = 4;
@@ -16,6 +18,8 @@ export interface RunOptions {
   runId?: string;
   history?: History;
   permissions?: Permissions;
+  memory?: AgentMemory;
+  usage?: UsageLog;
   commandTimeoutMs?: number;
 }
 
@@ -26,6 +30,8 @@ interface RunContext {
   emit: Emit;
   settings: Settings;
   permissions: Permissions;
+  memory?: AgentMemory;
+  usage?: UsageLog;
   commandTimeoutMs?: number;
 }
 
@@ -122,7 +128,7 @@ export function demoRoute(text: string, agents: Agent[]): Routing | null {
 }
 
 function agentSystem(agent: Agent): string {
-  return `${agent.prompt}\n\nTu nombre es ${agent.name} y tu rol en la oficina es: ${agent.role}.\nResponde siempre en español neutro latinoamericano: tutea, sin voseo ni regionalismos.`;
+  return `${agent.prompt}\n\nTu nombre es ${agent.name} y tu rol en la oficina es: ${agent.role}.\nResponde siempre en español neutro latinoamericano: tutea, sin voseo ni regionalismos. Sé breve y directo: sin rodeos, sin repetir la pregunta y sin explicar lo obvio.`;
 }
 
 function toolsSystem(agent: Agent, settings: Settings): string {
@@ -151,12 +157,12 @@ function claudeCodeOptions(agent: Agent, provider: Provider, settings: Settings)
   return { tools, cwd: settings.workspace, acceptEdits: settings.autoApprove };
 }
 
-function routingSystem(lead: Agent, agents: Agent[]): string {
+function routingSystem(lead: Agent, agents: Agent[], memory = ""): string {
   const roster = agents
     .filter((a) => a.id !== lead.id)
     .map((a) => `- id: ${a.id} | nombre: ${a.name} | rol: ${a.role}${a.tools ? " | puede usar la PC (archivos y comandos)" : ""}`)
     .join("\n");
-  return `${agentSystem(lead)}
+  return `${agentSystem(lead)}${memory ? memorySection(memory, false) : ""}
 
 Eres quien reparte el trabajo. Tu equipo:
 ${roster || "(no hay nadie más en la oficina)"}
@@ -167,14 +173,57 @@ Usa como máximo ${MAX_ASSIGNMENTS} asignaciones. Si puedes responder tú solo o
 Si el pedido requiere mirar, crear o cambiar archivos, o correr algo en la computadora del usuario, asígnalo SOLO a alguien que "puede usar la PC". Si nadie puede, dilo en la nota y no lo asignes.`;
 }
 
-async function collect(agent: Agent, office: Office, system: string, messages: ChatMessage[]): Promise<string> {
+async function collect(ctx: RunContext, agent: Agent, system: string, messages: ChatMessage[]): Promise<string> {
+  const office = ctx.office;
   const provider = office.providers.find((p) => p.id === agent.providerId);
   if (!provider) throw new Error(`Provider "${agent.providerId}" no existe`);
   let text = "";
   for await (const chunk of streamChat({ provider, model: agent.model, system, messages })) {
     if (chunk.text) text += chunk.text;
+    if (chunk.usage) recordUsage(ctx, agent, provider, "ruteo", chunk.usage);
   }
   return text;
+}
+
+/** "Bruno, revisa esto" o "@Sofía: ..." va directo a esa persona, sin gastar una llamada del líder en repartir. */
+export function addressedAgent(text: string, agents: Agent[]): Agent | undefined {
+  const m = /^\s*@?([\p{L}][\p{L}\p{N}_-]*)\s*(?:,|:|;|\s-\s)/u.exec(text);
+  if (!m) return undefined;
+  const key = normalize(m[1]);
+  const lead = findLead(agents);
+  return agents.find((a) => a.id !== lead?.id && normalize(a.name) === key);
+}
+
+const HISTORY_RECENT = 4;
+const HISTORY_CLIP_RECENT = 3000;
+const HISTORY_CLIP_OLD = 600;
+
+// Cada llamada reenvía el historial entero: se recortan los mensajes largos y viejos para no pagarlos una y otra vez.
+export function compactHistory(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m, i) => {
+    const limit = i >= messages.length - HISTORY_RECENT ? HISTORY_CLIP_RECENT : HISTORY_CLIP_OLD;
+    return m.content.length > limit ? { ...m, content: `${m.content.slice(0, limit)}\n[…recortado]` } : m;
+  });
+}
+
+function recordUsage(
+  ctx: RunContext,
+  agent: Agent,
+  provider: Provider,
+  kind: "respuesta" | "ruteo",
+  usage: { input: number; output: number; cached?: number; costUsd?: number },
+): void {
+  ctx.usage?.record({
+    agent: agent.name,
+    provider: provider.id,
+    account: provider.kind === "claude-code" ? provider.configDir?.trim() || "por defecto" : provider.name,
+    model: agent.model,
+    kind,
+    input: usage.input,
+    output: usage.output,
+    cached: usage.cached,
+    costUsd: usage.costUsd,
+  });
 }
 
 async function runAgent(ctx: RunContext, agent: Agent, task: string, message: string, from: string | null): Promise<void> {
@@ -186,8 +235,11 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
     const settings: Settings = { ...ctx.settings, workspace: agent.workspace?.trim() || ctx.settings.workspace };
     const withTools = usesTools(agent, provider);
     const claudeCode = claudeCodeOptions(agent, provider, settings);
-    const system = withTools || claudeCode ? toolsSystem(agent, settings) : agentSystem(agent);
-    const conv: ConvMessage[] = [...history.get(agent.id), { role: "user", content: message }];
+    const memory = (await ctx.memory?.read(agent.id)) ?? "";
+    const system =
+      (withTools || claudeCode ? toolsSystem(agent, settings) : agentSystem(agent)) + (ctx.memory ? memorySection(memory, true) : "");
+    const filter = new MemoryBlockFilter();
+    const conv: ConvMessage[] = [...compactHistory(history.get(agent.id)), { role: "user", content: message }];
     let text = "";
     let output = 0;
     let sawUsage = false;
@@ -201,16 +253,22 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
       const tools = withTools ? TOOL_SPECS : undefined;
       for await (const chunk of streamChat({ provider, model: agent.model, system, messages: conv, tools, claudeCode })) {
         if (chunk.text) {
-          if (!stepText && text && !text.endsWith("\n")) say("\n\n");
-          stepText += chunk.text;
-          say(chunk.text);
+          const visible = filter.push(chunk.text);
+          if (visible) {
+            if (!stepText && text && !text.endsWith("\n")) say("\n\n");
+            stepText += visible;
+            say(visible);
+          }
         }
         if (chunk.toolCalls) toolCalls = chunk.toolCalls;
         if (chunk.usage) {
           output += chunk.usage.output;
           sawUsage = true;
+          recordUsage(ctx, agent, provider, "respuesta", chunk.usage);
         }
       }
+      const rest = filter.flush();
+      if (rest) say(rest);
       if (!withTools || toolCalls.length === 0) break;
       if (step >= MAX_TOOL_ITERATIONS) {
         say(`${text && !text.endsWith("\n") ? "\n\n" : ""}(Me detuve: llegué al máximo de ${MAX_TOOL_ITERATIONS} pasos con herramientas.)`);
@@ -232,6 +290,8 @@ async function runAgent(ctx: RunContext, agent: Agent, task: string, message: st
         conv.push({ role: "tool", toolCallId: call.id, name: call.name, content: result.output, isError: !result.ok });
       }
     }
+    text = text.trim();
+    if (ctx.memory && filter.ops.length) await ctx.memory.apply(agent.id, filter.ops).catch((err) => console.error("[memoria]", err));
     history.push(agent.id, { role: "user", content: message }, { role: "assistant", content: text });
     emit({ type: "agent_done", runId, agentId: agent.id, text, tokens: sawUsage ? output : Math.ceil(text.length / 4) });
   } catch (err) {
@@ -255,11 +315,13 @@ export async function runMessage(
     emit,
     settings: { ...defaultSettings(office.providers), ...office.settings },
     permissions: options.permissions ?? new Permissions(),
+    memory: options.memory,
+    usage: options.usage,
     commandTimeoutMs: options.commandTimeoutMs,
   };
   emit({ type: "run_start", runId, text, target });
   try {
-    const direct = target ? office.agents.find((a) => a.id === target) : undefined;
+    const direct = (target ? office.agents.find((a) => a.id === target) : undefined) ?? addressedAgent(text, office.agents);
     if (direct) {
       await runAgent(ctx, direct, text, text, null);
       return runId;
@@ -273,8 +335,8 @@ export async function runMessage(
       routing = demoRoute(text, office.agents);
     } else {
       try {
-        const raw = await collect(lead, office, routingSystem(lead, office.agents), [
-          ...history.get(lead.id),
+        const raw = await collect(ctx, lead, routingSystem(lead, office.agents, (await ctx.memory?.read(lead.id)) ?? ""), [
+          ...compactHistory(history.get(lead.id)),
           { role: "user", content: text },
         ]);
         routing = parseRouting(raw, office.agents);

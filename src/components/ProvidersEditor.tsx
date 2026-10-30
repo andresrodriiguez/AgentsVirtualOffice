@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ProviderKind, PublicOffice, PublicProvider } from "../../shared/types.ts";
-import { api } from "../api.ts";
+import { api, type UsageTotal } from "../api.ts";
 
 const KIND_HELP: Record<ProviderKind, string> = {
   anthropic: "API de Anthropic (Claude).",
@@ -9,7 +9,9 @@ const KIND_HELP: Record<ProviderKind, string> = {
   demo: "Respuestas simuladas, sin red ni costo. Sirve para probar la oficina.",
 };
 
-function ProviderRow({ p, inUse, onError }: { p: PublicProvider; inUse: boolean; onError: (m: string) => void }) {
+const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+
+function ProviderRow({ p, inUse, usage, onError }: { p: PublicProvider; inUse: boolean; usage?: UsageTotal; onError: (m: string) => void }) {
   const [draft, setDraft] = useState({ ...p, apiKey: "" });
   useEffect(() => setDraft({ ...p, apiKey: "" }), [p]);
   const dirty = draft.apiKey !== "" || JSON.stringify({ ...draft, apiKey: undefined }) !== JSON.stringify({ ...p, apiKey: undefined });
@@ -38,6 +40,12 @@ function ProviderRow({ p, inUse, onError }: { p: PublicProvider; inUse: boolean;
         </label>
       </div>
       <p className="hint">{KIND_HELP[draft.kind]}</p>
+      {usage && (
+        <p className="hint">
+          Uso registrado: {usage.calls} llamadas · {fmt(usage.input)} tokens de entrada ({fmt(usage.cached)} en caché) · {fmt(usage.output)} de salida
+          {usage.costUsd > 0 ? ` · ≈ $${usage.costUsd.toFixed(2)} a precio de API (no se cobra con suscripción)` : ""}
+        </p>
+      )}
       {draft.kind !== "demo" && draft.kind !== "claude-code" && (
         <div className="row3">
           <label>
@@ -165,6 +173,13 @@ function SettingsCard({ office, onError }: { office: PublicOffice; onError: (m: 
 
 export function ProvidersEditor({ office }: { office: PublicOffice }) {
   const [error, setError] = useState<string | null>(null);
+  const [usage, setUsage] = useState<Record<string, UsageTotal>>({});
+  useEffect(() => {
+    const load = () => api.usage().then(setUsage).catch(() => {});
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+  }, []);
   return (
     <div className="editor">
       <div className="editor-head">
@@ -191,7 +206,7 @@ export function ProvidersEditor({ office }: { office: PublicOffice }) {
       <div className="cards">
         <SettingsCard office={office} onError={setError} />
         {office.providers.map((p) => (
-          <ProviderRow key={p.id} p={p} inUse={office.agents.some((a) => a.providerId === p.id)} onError={setError} />
+          <ProviderRow key={p.id} p={p} usage={usage[p.id]} inUse={office.agents.some((a) => a.providerId === p.id)} onError={setError} />
         ))}
       </div>
     </div>

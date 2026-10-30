@@ -1,7 +1,9 @@
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
+import { agentFolder } from "./memory.ts";
 import type { Agent, ChatMessage, Layout, Office, Provider, PublicOffice, PublicProvider, Settings } from "../shared/types.ts";
 
 export const HISTORY_LIMIT = 20;
@@ -189,32 +191,74 @@ export function publicOffice(office: Office): PublicOffice {
   return { ...structuredClone(office), providers: office.providers.map(publicProvider) };
 }
 
+/** Conversación reciente de cada agente. Con `dir`, se guarda en <dir>/<agente>/historial.json y sobrevive a reinicios. */
 export class History {
   private map = new Map<string, ChatMessage[]>();
 
+  constructor(private readonly dir?: string) {}
+
+  private file(agentId: string): string | undefined {
+    return this.dir ? join(agentFolder(this.dir, agentId), "historial.json") : undefined;
+  }
+
+  private load(agentId: string): ChatMessage[] {
+    const cached = this.map.get(agentId);
+    if (cached) return cached;
+    let list: ChatMessage[] = [];
+    const file = this.file(agentId);
+    if (file) {
+      try {
+        const raw = JSON.parse(readFileSync(file, "utf8"));
+        if (Array.isArray(raw)) list = raw.filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string");
+      } catch {
+        // sin historial guardado o ilegible: se empieza de cero
+      }
+    }
+    this.map.set(agentId, list);
+    return list;
+  }
+
   get(agentId: string): ChatMessage[] {
-    return [...(this.map.get(agentId) ?? [])];
+    return [...this.load(agentId)];
   }
 
   push(agentId: string, ...messages: ChatMessage[]): void {
-    const list = [...(this.map.get(agentId) ?? []), ...messages];
-    this.map.set(agentId, list.slice(-HISTORY_LIMIT));
+    const list = [...this.load(agentId), ...messages].slice(-HISTORY_LIMIT);
+    this.map.set(agentId, list);
+    const file = this.file(agentId);
+    if (!file) return;
+    try {
+      mkdirSync(agentFolder(this.dir!, agentId), { recursive: true });
+      writeFileSync(file, JSON.stringify(list) + "\n", "utf8");
+    } catch (err) {
+      console.error("[historial] no se pudo guardar:", (err as Error).message);
+    }
   }
 
   reset(agentId?: string): void {
     if (agentId) this.map.delete(agentId);
     else this.map.clear();
+    if (!this.dir) return;
+    try {
+      const ids = agentId ? [agentId] : readdirSync(this.dir);
+      for (const id of ids) rmSync(this.file(id)!, { force: true });
+    } catch {
+      // la carpeta de agentes todavía no existe
+    }
   }
 }
 
 export class Store {
-  readonly history = new History();
+  readonly history: History;
   private writing: Promise<void> = Promise.resolve();
 
   private constructor(
     readonly file: string,
     public office: Office,
-  ) {}
+    agentsDir?: string,
+  ) {
+    this.history = new History(agentsDir);
+  }
 
   static async open(dataDir: string): Promise<Store> {
     await mkdir(dataDir, { recursive: true });
@@ -226,11 +270,11 @@ export class Store {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
       office = defaultOffice();
       migrateOffice(office);
-      const store = new Store(file, office);
+      const store = new Store(file, office, join(dataDir, "agentes"));
       await store.save();
       return store;
     }
-    const store = new Store(file, office);
+    const store = new Store(file, office, join(dataDir, "agentes"));
     if (migrateOffice(office)) await store.save();
     return store;
   }
